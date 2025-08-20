@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Eye, 
-  Edit, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
   Trash2,
   Tag,
   Calendar,
   Settings,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  FunnelX
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -20,8 +22,11 @@ import type { Category, Service } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
+import Checkbox from '../components/ui/Checkbox';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import ServiceSelectionModal from '../components/ui/ServiceSelectionModal';
 
 const categorySchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
@@ -35,6 +40,8 @@ const Categories: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [showServiceSelectionModal, setShowServiceSelectionModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -48,33 +55,63 @@ const Categories: React.FC = () => {
     reset,
     formState: { errors },
     setValue,
+    watch,
   } = useForm({
     resolver: yupResolver(categorySchema),
   });
 
   useEffect(() => {
     fetchCategories();
+  }, [currentPage]); // Removidas dependências dos filtros para evitar loops
+
+  useEffect(() => {
     fetchServices();
-  }, [currentPage, statusFilter]);
+  }, []); // Executar apenas uma vez ao montar o componente
 
   const fetchCategories = async () => {
     try {
       setIsLoading(true);
-      let response;
-      
-      if (statusFilter === 'all') {
-        response = await apiService.getCategories();
-      } else {
-        response = await apiService.getCategories(); // API não tem filtro por status para categorias
+
+      // Construir parâmetros de filtro
+      const params = new URLSearchParams();
+
+      if (statusFilter !== 'all') {
+        params.append('is_active', statusFilter === 'active' ? 'true' : 'false');
       }
-      
+
+      if (searchTerm.trim()) {
+        params.append('name', searchTerm);
+      }
+
+      if (selectedService) {
+        params.append('service_id', selectedService.id.toString());
+      }
+
+      // Adicionar página atual
+      params.append('page', currentPage.toString());
+
+      // Fazer a requisição com filtros
+      const response = await apiService.getCategories(params.toString());
+
       setCategories(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
-      console.error('Erro ao carregar categorias:', error);
+      toast.error('Erro ao carregar categorias:');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const applyFilters = () => {
+    setCurrentPage(1);
+    fetchCategories();
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setSelectedService(null);
+    setCurrentPage(1);
   };
 
   const fetchServices = async () => {
@@ -82,7 +119,7 @@ const Categories: React.FC = () => {
       const response = await apiService.getServices();
       setServices(response.data);
     } catch (error) {
-      console.error('Erro ao carregar serviços:', error);
+      toast.error('Erro ao carregar serviços:');
     }
   };
 
@@ -92,22 +129,24 @@ const Categories: React.FC = () => {
       setShowCreateModal(false);
       reset();
       fetchCategories();
+      toast.success('Categoria criada com sucesso!');
     } catch (error) {
-      console.error('Erro ao criar categoria:', error);
+      toast.error('Erro ao criar categoria:');
     }
   };
 
   const handleUpdateCategory = async (data: any) => {
     if (!selectedCategory) return;
-    
+
     try {
       await apiService.updateCategory(selectedCategory.id, data);
       setShowEditModal(false);
       reset();
       setSelectedCategory(null);
       fetchCategories();
+      toast.success('Categoria atualizada com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar categoria:', error);
+      toast.error('Erro ao atualizar categoria:');
     }
   };
 
@@ -116,8 +155,9 @@ const Categories: React.FC = () => {
       try {
         await apiService.deleteCategory(id);
         fetchCategories();
+        toast.success('Categoria excluída com sucesso!');
       } catch (error) {
-        console.error('Erro ao excluir categoria:', error);
+        toast.error('Erro ao excluir categoria:');
       }
     }
   };
@@ -129,8 +169,9 @@ const Categories: React.FC = () => {
         is_active: !category.is_active,
       });
       fetchCategories();
+      toast.success('Status da categoria alterado com sucesso!');
     } catch (error) {
-      console.error('Erro ao alterar status da categoria:', error);
+      toast.error('Erro ao alterar status da categoria:');
     }
   };
 
@@ -147,14 +188,7 @@ const Categories: React.FC = () => {
     setShowViewModal(true);
   };
 
-  const filteredCategories = categories.filter(category => {
-    const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         category.service?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && category.is_active) ||
-                         (statusFilter === 'inactive' && !category.is_active);
-    return matchesSearch && matchesStatus;
-  });
+
 
   const columns = [
     {
@@ -190,11 +224,10 @@ const Categories: React.FC = () => {
       render: (value: boolean, item: Category) => (
         <button
           onClick={() => handleToggleStatus(item)}
-          className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            value 
-              ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+          className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium transition-colors ${value
+              ? 'bg-green-100 text-green-800 hover:bg-green-200'
               : 'bg-red-100 text-red-800 hover:bg-red-200'
-          }`}
+            }`}
         >
           {value ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
           <span>{value ? 'Ativo' : 'Inativo'}</span>
@@ -273,14 +306,14 @@ const Categories: React.FC = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Buscar por nome ou serviço..."
+                placeholder="Buscar por nome..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Status
@@ -291,21 +324,50 @@ const Categories: React.FC = () => {
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             >
               <option value="all">Todos</option>
-              <option value="active">Ativos</option>
-              <option value="inactive">Inativos</option>
+              <option value="active">Ativas</option>
+              <option value="inactive">Inativas</option>
             </select>
           </div>
 
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              onClick={fetchCategories}
-              className="w-full"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Atualizar Lista
-            </Button>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Serviço
+            </label>
+            <div className="flex space-x-2">
+              <Input
+                placeholder="Selecione um serviço..."
+                value={selectedService ? selectedService.name : ''}
+                readOnly
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowServiceSelectionModal(true)}
+                size="sm"
+              >
+                Selecionar
+              </Button>
+            </div>
           </div>
+        </div>
+
+        {/* Botões de ação dos filtros */}
+        <div className="flex justify-end space-x-2 pt-4">
+          <Button
+            variant="outline"
+            onClick={clearFilters}
+          >
+            <FunnelX className="h-4 w-4 mr-2" />
+            Limpar Filtros
+          </Button>
+          <Button
+            variant="outline"
+            onClick={applyFilters}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Aplicar Filtros
+          </Button>
         </div>
       </Card>
 
@@ -313,7 +375,7 @@ const Categories: React.FC = () => {
       <Card>
         <Table
           columns={columns}
-          data={filteredCategories}
+          data={categories}
           isLoading={isLoading}
           emptyMessage="Nenhuma categoria encontrada"
         />
@@ -361,38 +423,29 @@ const Categories: React.FC = () => {
             {...register('name')}
           />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Serviço
-            </label>
-            <select
-              {...register('service_id')}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            >
-              <option value="">Selecione um serviço</option>
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name}
-                </option>
-              ))}
-            </select>
-            {errors.service_id && (
-              <p className="mt-1 text-sm text-red-600">{errors.service_id.message}</p>
-            )}
-          </div>
+          <Select
+            label="Serviço"
+            options={services.map(service => ({
+              value: service.id,
+              label: service.name
+            }))}
+            placeholder="Selecione um serviço"
+            error={errors.service_id?.message}
+            name="service_id"
+            onChange={(value) => setValue('service_id', Number(value))}
+            searchable
+            searchPlaceholder="Pesquisar serviços..."
+            noOptionsText="Nenhum serviço encontrado"
+            required
+          />
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="is_active"
-              {...register('is_active')}
-              defaultChecked={true}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
-              Categoria Ativa
-            </label>
-          </div>
+          <Checkbox
+            id="is_active"
+            label="Categoria Ativa"
+            description="Marque para ativar esta categoria"
+            defaultChecked={true}
+            {...register('is_active')}
+          />
 
           <div className="flex justify-end space-x-3 pt-4">
             <Button
@@ -424,33 +477,28 @@ const Categories: React.FC = () => {
             {...register('name')}
           />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Serviço
-            </label>
-            <select
-              {...register('service_id')}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            >
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Serviço"
+            options={services.map(service => ({
+              value: service.id,
+              label: service.name
+            }))}
+            error={errors.service_id?.message}
+            name="service_id"
+            value={watch('service_id')}
+            onChange={(value) => setValue('service_id', Number(value))}
+            searchable
+            searchPlaceholder="Pesquisar serviços..."
+            noOptionsText="Nenhum serviço encontrado"
+            required
+          />
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="edit_is_active"
-              {...register('is_active')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="edit_is_active" className="text-sm font-medium text-gray-700">
-              Categoria Ativa
-            </label>
-          </div>
+          <Checkbox
+            id="edit_is_active"
+            label="Categoria Ativa"
+            description="Marque para ativar esta categoria"
+            {...register('is_active')}
+          />
 
           <div className="flex justify-end space-x-3 pt-4">
             <Button
@@ -489,11 +537,10 @@ const Categories: React.FC = () => {
                   ) : (
                     <ToggleLeft className="h-4 w-4 text-red-600 mr-1" />
                   )}
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    selectedCategory.is_active 
-                      ? 'bg-green-100 text-green-800' 
+                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${selectedCategory.is_active
+                      ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
-                  }`}>
+                    }`}>
                     {selectedCategory.is_active ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>
@@ -542,6 +589,16 @@ const Categories: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Modal de Seleção de Serviço */}
+      <ServiceSelectionModal
+        isOpen={showServiceSelectionModal}
+        onClose={() => setShowServiceSelectionModal(false)}
+        onSelect={(service) => {
+          setSelectedService(service as Service);
+          setShowServiceSelectionModal(false);
+        }}
+      />
     </div>
   );
 };

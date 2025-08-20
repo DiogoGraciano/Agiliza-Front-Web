@@ -1,15 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Save, 
-  Building2,
-  Palette,
-  Eye,
-  EyeOff,
-  RefreshCw
-} from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { Building2, Eye, EyeOff, RefreshCw, Palette, Smartphone, Monitor } from 'lucide-react';
+import toast from 'react-hot-toast';
 import apiService from '../services/api';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -71,10 +65,10 @@ const EnterprisePage: React.FC = () => {
     try {
       setIsSaving(true);
       await apiService.updateEnterprise(data);
-      alert('Configurações da empresa atualizadas com sucesso!');
+      toast.success('Configurações da empresa atualizadas com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar empresa:', error);
-      alert('Erro ao atualizar configurações da empresa');
+      toast.error('Erro ao atualizar configurações da empresa');
     } finally {
       setIsSaving(false);
     }
@@ -309,7 +303,7 @@ const EnterprisePage: React.FC = () => {
                 disabled={isSaving}
                 size="lg"
               >
-                <Save className="h-5 w-5 mr-2" />
+                {/* <Save className="h-5 w-5 mr-2" /> */}
                 {isSaving ? 'Salvando...' : 'Salvar Configurações'}
               </Button>
             </div>

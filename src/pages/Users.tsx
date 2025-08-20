@@ -10,7 +10,8 @@ import {
   Phone,
   MapPin,
   Calendar,
-  Shield
+  Shield,
+  FunnelX
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -22,6 +23,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import toast from 'react-hot-toast';
 
 const userSchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
@@ -36,13 +38,20 @@ const userSchema = yup.object({
   city: yup.string().optional(),
   state: yup.string().optional(),
   zip_code: yup.string().optional(),
-  is_admin: yup.boolean().optional(),
+  role: yup.string().optional(),
+  latitude: yup.string().optional(),
+  longitude: yup.string().optional(),
 });
 
 const Users: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
+  const [emailFilter, setEmailFilter] = useState('');
+  const [cpfCnpjFilter, setCpfCnpjFilter] = useState('');
+  const [phoneFilter, setPhoneFilter] = useState('');
+  const [birthDateFilter, setBirthDateFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -63,12 +72,42 @@ const Users: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage]);
+  }, [currentPage]); // Removidas dependências dos filtros para evitar loops
 
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      const response = await apiService.getUsers();
+      
+      // Construir parâmetros de filtro
+      const params = new URLSearchParams();
+      
+      if (nameFilter.trim()) {
+        params.append('name', nameFilter);
+      }
+      
+      if (emailFilter.trim()) {
+        params.append('email', emailFilter);
+      }
+      
+      if (cpfCnpjFilter.trim()) {
+        params.append('cpf_cnpj', cpfCnpjFilter);
+      }
+      
+      if (phoneFilter.trim()) {
+        params.append('phone', phoneFilter);
+      }
+      
+      if (birthDateFilter.trim()) {
+        params.append('birth_date', birthDateFilter);
+      }
+      
+      if (roleFilter !== 'all') {
+        params.append('role', roleFilter);
+      }
+      
+      params.append('page', currentPage.toString());
+      
+      const response = await apiService.getUsers(params.toString());
       setUsers(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
@@ -78,10 +117,25 @@ const Users: React.FC = () => {
     }
   };
 
+  const applyFilters = () => {
+    setCurrentPage(1);
+    fetchUsers();
+  };
+
+  const clearFilters = () => {
+    setNameFilter('');
+    setEmailFilter('');
+    setCpfCnpjFilter('');
+    setPhoneFilter('');
+    setBirthDateFilter('');
+    setRoleFilter('all');
+    setCurrentPage(1);
+  };
+
   const handleCreateUser = async (data: any) => {
     try {
       if (!password) {
-        alert('Senha é obrigatória para novos usuários');
+        toast.error('Senha é obrigatória para novos usuários');
         return;
       }
       
@@ -93,8 +147,10 @@ const Users: React.FC = () => {
       reset();
       setPassword('');
       fetchUsers();
+      toast.success('Usuário criado com sucesso!');
     } catch (error) {
       console.error('Erro ao criar usuário:', error);
+      toast.error('Erro ao criar usuário.');
     }
   };
 
@@ -107,8 +163,10 @@ const Users: React.FC = () => {
       reset();
       setSelectedUser(null);
       fetchUsers();
+      toast.success('Usuário atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar usuário:', error);
+      toast.error('Erro ao atualizar usuário.');
     }
   };
 
@@ -117,8 +175,10 @@ const Users: React.FC = () => {
       try {
         await apiService.deleteUser(id);
         fetchUsers();
+        toast.success('Usuário excluído com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir usuário:', error);
+        toast.error('Erro ao excluir usuário.');
       }
     }
   };
@@ -137,7 +197,9 @@ const Users: React.FC = () => {
     setValue('city', user.city || '');
     setValue('state', user.state || '');
     setValue('zip_code', user.zip_code || '');
-    setValue('is_admin', user.is_admin || false);
+    setValue('role', user.role || '');
+    setValue('latitude', user.latitude || '');
+    setValue('longitude', user.longitude || '');
     setShowEditModal(true);
   };
 
@@ -146,12 +208,7 @@ const Users: React.FC = () => {
     setShowViewModal(true);
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.cpf_cnpj.includes(searchTerm);
-    return matchesSearch;
-  });
+  // Filtros são aplicados no backend através dos parâmetros da API
 
   const columns = [
     {
@@ -203,17 +260,17 @@ const Users: React.FC = () => {
       ),
     },
     {
-      key: 'is_admin',
+      key: 'role',
       header: 'Tipo',
-      render: (value: boolean) => (
+      render: (value: string) => (
         <div className="flex items-center">
-          <Shield className={`h-4 w-4 mr-2 ${value ? 'text-blue-600' : 'text-gray-400'}`} />
+          <Shield className={`h-4 w-4 mr-2 ${value === 'admin' ? 'text-blue-600' : 'text-gray-400'}`} />
           <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-            value 
+            value === 'admin'
               ? 'bg-blue-100 text-blue-800' 
               : 'bg-gray-100 text-gray-800'
           }`}>
-            {value ? 'Admin' : 'Usuário'}
+            {value === 'admin' ? 'Admin' : 'Usuário'}
           </span>
         </div>
       ),
@@ -282,31 +339,111 @@ const Users: React.FC = () => {
 
       {/* Filtros */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Buscar
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nome
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por email..."
+                  value={emailFilter}
+                  onChange={(e) => setEmailFilter(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                CPF/CNPJ
+              </label>
               <Input
-                placeholder="Buscar por nome, email ou CPF/CNPJ..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                placeholder="Buscar por CPF/CNPJ..."
+                value={cpfCnpjFilter}
+                onChange={(e) => setCpfCnpjFilter(e.target.value)}
               />
             </div>
           </div>
           
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              onClick={fetchUsers}
-              className="w-full"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Atualizar Lista
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Telefone
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por telefone..."
+                  value={phoneFilter}
+                  onChange={(e) => setPhoneFilter(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data de Nascimento
+              </label>
+              <Input
+                type="date"
+                value={birthDateFilter}
+                onChange={(e) => setBirthDateFilter(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Função
+              </label>
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              >
+                <option value="all">Todas as Funções</option>
+                <option value="user">Usuário</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="flex-1"
+              >
+                <FunnelX className="h-4 w-4 mr-2" />
+                Limpar Filtros
+              </Button>
+              <Button
+                variant="outline"
+                onClick={applyFilters}
+                className="flex-1"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Aplicar Filtros
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
@@ -315,7 +452,7 @@ const Users: React.FC = () => {
       <Card>
         <Table
           columns={columns}
-          data={filteredUsers}
+          data={users}
           isLoading={isLoading}
           emptyMessage="Nenhum usuário encontrado"
         />
@@ -453,17 +590,6 @@ const Users: React.FC = () => {
               error={errors.state?.message}
               {...register('state')}
             />
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="is_admin"
-                {...register('is_admin')}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="is_admin" className="text-sm font-medium text-gray-700">
-                Usuário Administrador
-              </label>
-            </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
@@ -576,19 +702,6 @@ const Users: React.FC = () => {
               {...register('state')}
             />
           </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="edit_is_admin"
-              {...register('is_admin')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="edit_is_admin" className="text-sm font-medium text-gray-700">
-              Usuário Administrador
-            </label>
-          </div>
-
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               type="button"
@@ -623,13 +736,13 @@ const Users: React.FC = () => {
                 <h3 className="text-lg font-medium text-gray-900">{selectedUser.name}</h3>
                 <p className="text-sm text-gray-500">{selectedUser.email}</p>
                 <div className="flex items-center mt-1">
-                  <Shield className={`h-4 w-4 mr-1 ${selectedUser.is_admin ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <Shield className={`h-4 w-4 mr-1 ${selectedUser.role === 'admin' ? 'text-blue-600' : 'text-gray-400'}`} />
                   <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    selectedUser.is_admin 
+                    selectedUser.role === 'admin' 
                       ? 'bg-blue-100 text-blue-800' 
                       : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {selectedUser.is_admin ? 'Administrador' : 'Usuário'}
+                    {selectedUser.role === 'admin' ? 'Administrador' : 'Usuário'}
                   </span>
                 </div>
               </div>

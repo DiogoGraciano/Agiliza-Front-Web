@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Mail, User, Lock, Eye, EyeOff } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -20,7 +21,6 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'email' | 'cpf'>('email');
-  const [error, setError] = useState<string>('');
   
   const navigate = useNavigate();
   const { login, loginWithCpfCnpj } = useAuth();
@@ -47,7 +47,6 @@ const Login: React.FC = () => {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
-    setError('');
 
     try {
       if (loginMethod === 'email') {
@@ -57,7 +56,7 @@ const Login: React.FC = () => {
       }
       navigate('/dashboard');
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Erro ao fazer login');
+      toast.error(error.response?.data?.message || 'Erro ao fazer login');
     } finally {
       setIsLoading(false);
     }
@@ -80,11 +79,6 @@ const Login: React.FC = () => {
 
         <Card>
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
 
             <Input
               label="Email ou CPF/CNPJ"

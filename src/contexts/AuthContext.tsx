@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { User } from '../types';
+import toast from 'react-hot-toast';
 import apiService from '../services/api';
+import type { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -39,7 +40,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const userData = await apiService.getProfile();
           setUser(userData);
         } catch (error) {
-          console.error('Erro ao carregar perfil:', error);
+          toast.error('Erro ao carregar perfil: ' + error);
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user');
         }

@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Eye, 
-  Edit, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
   Trash2,
   MapPin,
   User as UserIcon,
-  Calendar
+  Calendar,
+  FunnelX,
+  File
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
+import toast from 'react-hot-toast';
+
 import apiService from '../services/api';
 import type { Manifest, User, Service } from '../types';
 import Card from '../components/ui/Card';
@@ -20,27 +21,37 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import UserSelectionModal from '../components/ui/UserSelectionModal';
+import ServiceSelectionModal from '../components/ui/ServiceSelectionModal';
+import FilePreview from '../components/ui/FilePreview';
+import ManifestForm from '../components/ui/ManifestForm';
+import { useAuth } from '../contexts/AuthContext';
+import Select from '../components/ui/Select';
 
-const manifestSchema = yup.object({
-  user_id: yup.number().required('Usuário é obrigatório'),
-  service_id: yup.number().required('Serviço é obrigatório'),
-  description: yup.string().required('Descrição é obrigatória'),
-  zip_code: yup.string().required('CEP é obrigatório'),
-  address: yup.string().required('Endereço é obrigatório'),
-  number: yup.string().required('Número é obrigatório'),
-  city: yup.string().required('Cidade é obrigatória'),
-  state: yup.string().required('Estado é obrigatório'),
-});
-
-type ManifestFormData = yup.InferType<typeof manifestSchema>;
+const statusOptions = [
+  { value: 'all', label: 'Todos os Status' },
+  { value: 'pending', label: 'Pendentes' },
+  { value: 'accepted', label: 'Aceitos' },
+  { value: 'in_progress', label: 'Em Andamento' },
+  { value: 'completed', label: 'Concluídos' },
+  { value: 'rejected', label: 'Rejeitados' },
+  { value: 'cancelled', label: 'Cancelados' },
+];
 
 const Manifests: React.FC = () => {
+  const { user } = useAuth();
   const [manifests, setManifests] = useState<Manifest[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [zipCodeFilter, setZipCodeFilter] = useState<string>('');
+  const [addressFilter, setAddressFilter] = useState<string>('');
+  const [cityFilter, setCityFilter] = useState<string>('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(user?.role === 'admin' ? null : user);
+  const [filterService, setFilterService] = useState<Service | null>(null);
+  const [formService, setFormService] = useState<Service | null>(null);
+  const [showUserSelectionModal, setShowUserSelectionModal] = useState(false);
+  const [showServiceSelectionModal, setShowServiceSelectionModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -48,89 +59,169 @@ const Manifests: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-    setValue,
-  } = useForm<ManifestFormData>({
-    resolver: yupResolver(manifestSchema),
-  });
-
   useEffect(() => {
     fetchManifests();
-    fetchUsers();
-    fetchServices();
-  }, [currentPage, statusFilter]);
+  }, [currentPage]); // Removidas dependências dos filtros para evitar loops
 
   const fetchManifests = async () => {
     try {
       setIsLoading(true);
-      let response;
-      
-      if (statusFilter === 'all') {
-        response = await apiService.getManifests();
-      } else {
-        response = await apiService.getManifestsByStatus(statusFilter);
+
+      // Construir parâmetros de filtro
+      const params = new URLSearchParams();
+
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
       }
-      
+
+      if (searchTerm.trim()) {
+        params.append('description', searchTerm);
+      }
+
+      if (selectedUser) {
+        params.append('user_id', selectedUser.id.toString());
+      }
+
+      if (filterService) {
+        params.append('service_id', filterService.id.toString());
+      }
+
+      if (zipCodeFilter.trim()) {
+        params.append('zip_code', zipCodeFilter);
+      }
+
+      if (addressFilter.trim()) {
+        params.append('address', addressFilter);
+      }
+
+      if (cityFilter.trim()) {
+        params.append('city', cityFilter);
+      }
+
+      // Adicionar página atual
+      params.append('page', currentPage.toString());
+
+      // Fazer a requisição com filtros
+      const response = await apiService.getManifests(params.toString());
+
       setManifests(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
-      console.error('Erro ao carregar manifestos:', error);
+      toast.error('Erro ao carregar manifestos.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const response = await apiService.getUsers();
-      setUsers(response.data);
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
-    }
+  const applyFilters = () => {
+    setCurrentPage(1); // Reset para primeira página ao aplicar filtros
+    fetchManifests();
   };
 
-  const fetchServices = async () => {
-    try {
-      const response = await apiService.getServices();
-      setServices(response.data);
-    } catch (error) {
-      console.error('Erro ao carregar serviços:', error);
-    }
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setSelectedUser(null);
+    setFilterService(null);
+    setFormService(null);
+    setZipCodeFilter('');
+    setAddressFilter('');
+    setCityFilter('');
+    setCurrentPage(1);
+
+    fetchManifests();
   };
 
-  const handleCreateManifest = async (data: ManifestFormData) => {
+  const handleCreateManifest = async (data: any) => {
     try {
-      await apiService.createManifest({
-        ...data,
+      const { files, ...manifestData } = data;
+      const finalManifestData = {
+        ...manifestData,
         status: 'pending',
-        neighborhood: '',
-        complement: '',
-        latitude: '',
-        longitude: '',
-      });
+        neighborhood: manifestData.neighborhood || '',
+        complement: manifestData.complement || '',
+        latitude: manifestData.latitude || '',
+        longitude: manifestData.longitude || '',
+      };
+
+      if (files && files.length > 0) {
+        await apiService.createManifestWithAttachments(finalManifestData, files);
+      } else {
+        await apiService.createManifest(finalManifestData);
+      }
+      
       setShowCreateModal(false);
-      reset();
+      setSelectedUser(user?.role === 'admin' ? null : user);
+      setFormService(null);
+      // Limpar filtros após criar
+      setZipCodeFilter('');
+      setAddressFilter('');
+      setCityFilter('');
+      setSearchTerm('');
+      setStatusFilter('all');
       fetchManifests();
-    } catch (error) {
-      console.error('Erro ao criar manifesto:', error);
+      toast.success('Manifesto criado com sucesso!');
+    } catch (error: any) {
+      toast.error('Erro ao criar manifesto.');
+      const apiMessage = error.response?.data?.message;
+      const apiErrors = error.response?.data?.errors;
+      if (apiErrors && typeof apiErrors === 'object') {
+
+        // Mostra uma mensagem geral agregada
+        const flatMsg = Object.values(apiErrors).flat().join(' ');
+        toast.error('Erro de validação: ' + (flatMsg || apiMessage || 'Erro ao criar manifesto'));
+      } else {
+        toast.error('Erro: ' + (apiMessage || 'Erro ao criar manifesto'));
+      }
     }
   };
 
-  const handleUpdateManifest = async (data: ManifestFormData) => {
+  const handleUserSelect = (user: User) => {
+    setSelectedUser(user);
+    setShowUserSelectionModal(false);
+  };
+
+  const handleServiceSelect = (service: Service) => {
+    // Determinar se é para filtro ou formulário baseado no modal ativo
+    if (showCreateModal || showEditModal) {
+      setFormService(service);
+    } else {
+      setFilterService(service);
+    }
+    setShowServiceSelectionModal(false);
+  };
+
+  const handleUpdateManifest = async (data: any) => {
     if (!selectedManifest) return;
-    
+
     try {
-      await apiService.updateManifest(selectedManifest.id, data);
+      const { files, ...manifestData } = data;
+      
+      // Se há novos arquivos, usar createManifestWithAttachments
+      if (files && files.length > 0) {
+        await apiService.createManifestWithAttachments(manifestData, files);
+      } else {
+        await apiService.updateManifest(selectedManifest.id, manifestData);
+      }
+      
       setShowEditModal(false);
-      reset();
       setSelectedManifest(null);
+      // Limpar seleções após editar
+      setSelectedUser(user?.role === 'admin' ? null : user);
+      setFormService(null);
       fetchManifests();
+      toast.success('Manifesto atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar manifesto:', error);
+      toast.error('Erro ao atualizar manifesto.');
+      const anyErr: any = error;
+      const apiMessage = anyErr.response?.data?.message;
+      const apiErrors = anyErr.response?.data?.errors;
+      if (apiErrors && typeof apiErrors === 'object') {
+
+        toast.error('Erro de validação: ' + (Object.values(apiErrors).flat().join(' ') || apiMessage || 'Erro ao atualizar manifesto'));
+      } else {
+        toast.error('Erro: ' + (apiMessage || 'Erro ao atualizar manifesto'));
+      }
     }
   };
 
@@ -139,22 +230,22 @@ const Manifests: React.FC = () => {
       try {
         await apiService.deleteManifest(id);
         fetchManifests();
+        toast.success('Manifesto excluído com sucesso!');
       } catch (error) {
-        console.error('Erro ao excluir manifesto:', error);
+        toast.error('Erro ao excluir manifesto.');
       }
     }
   };
 
   const openEditModal = (manifest: Manifest) => {
     setSelectedManifest(manifest);
-    setValue('user_id', manifest.user_id);
-    setValue('service_id', manifest.service_id);
-    setValue('description', manifest.description);
-    setValue('zip_code', manifest.zip_code);
-    setValue('address', manifest.address);
-    setValue('number', manifest.number);
-    setValue('city', manifest.city);
-    setValue('state', manifest.state);
+    // Carregar usuário e serviço selecionados para edição
+    if (manifest.user) {
+      setSelectedUser(manifest.user);
+    }
+    if (manifest.service) {
+      setFormService(manifest.service);
+    }
     setShowEditModal(true);
   };
 
@@ -201,29 +292,12 @@ const Manifests: React.FC = () => {
     }
   };
 
-  const filteredManifests = manifests.filter(manifest => {
-    const matchesSearch = manifest.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         manifest.user?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         manifest.city.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
-
+  // Filtros são aplicados no backend através dos parâmetros da API
   const columns = [
     {
       key: 'id',
       header: 'ID',
       className: 'w-16',
-    },
-    {
-      key: 'description',
-      header: 'Descrição',
-      render: (value: string) => (
-        <div className="max-w-xs">
-          <p className="text-sm font-medium text-gray-900 truncate">
-            {value.length > 50 ? `${value.substring(0, 50)}...` : value}
-          </p>
-        </div>
-      ),
     },
     {
       key: 'user',
@@ -252,6 +326,18 @@ const Manifests: React.FC = () => {
         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(value)}`}>
           {getStatusText(value)}
         </span>
+      ),
+    },
+    {
+      key: 'attachments',
+      header: 'Anexos',
+      render: (_: any, item: Manifest) => (
+        <div className="flex items-center">
+          <File className="h-4 w-4 text-gray-400 mr-2" />
+          <span className="text-sm text-gray-900">
+            {item.attachments?.length || 0} arquivo(s)
+          </span>
+        </div>
       ),
     },
     {
@@ -318,50 +404,136 @@ const Manifests: React.FC = () => {
 
       {/* Filtros */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Buscar
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={`${user?.role !== 'admin' ? 'col-span-2' : ''}`}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Buscar por Descrição
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por descrição..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <Select
+                options={statusOptions}
+                value={statusFilter}
+                onChange={(value) => setStatusFilter(value as string)}
+                searchable={true}
+                searchPlaceholder="Pesquisar por status..."
+                noOptionsText="Nenhum status encontrado"
+              />
+            </div>
+
+            {user?.role === 'admin' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Usuário
+              </label>
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Selecione um usuário..."
+                  value={selectedUser ? selectedUser.name : ''}
+                  readOnly
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowUserSelectionModal(true)}
+                  size="sm"
+                >
+                  Selecionar
+                </Button>
+              </div>
+            </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Serviço
+              </label>
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Selecione um serviço..."
+                  value={filterService ? filterService.name : ''}
+                  readOnly
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowServiceSelectionModal(true)}
+                  size="sm"
+                >
+                  Selecionar
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                CEP
+              </label>
               <Input
-                placeholder="Buscar por descrição, usuário ou cidade..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                placeholder="Filtrar por CEP..."
+                value={zipCodeFilter}
+                onChange={(e) => setZipCodeFilter(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cidade
+              </label>
+              <Input
+                placeholder="Filtrar por cidade..."
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
               />
             </div>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            >
-              <option value="all">Todos</option>
-              <option value="pending">Pendentes</option>
-              <option value="accepted">Aceitos</option>
-              <option value="in_progress">Em Andamento</option>
-              <option value="completed">Concluídos</option>
-              <option value="rejected">Rejeitados</option>
-              <option value="cancelled">Cancelados</option>
-            </select>
-          </div>
 
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              onClick={fetchManifests}
-              className="w-full"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Aplicar Filtros
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Endereço
+              </label>
+              <Input
+                placeholder="Filtrar por endereço..."
+                value={addressFilter}
+                onChange={(e) => setAddressFilter(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="w-full mr-2"
+              >
+                <FunnelX className="h-4 w-4 mr-2" />
+                Limpar Filtros
+              </Button>
+              <Button
+                variant="outline"
+                onClick={applyFilters}
+                className="w-full"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Aplicar Filtros
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
@@ -370,7 +542,7 @@ const Manifests: React.FC = () => {
       <Card>
         <Table
           columns={columns}
-          data={filteredManifests}
+          data={manifests}
           isLoading={isLoading}
           emptyMessage="Nenhum manifesto encontrado"
         />
@@ -410,105 +582,15 @@ const Manifests: React.FC = () => {
         title="Novo Manifesto"
         size="lg"
       >
-        <form onSubmit={handleSubmit(handleCreateManifest)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Usuário
-              </label>
-              <select
-                {...register('user_id')}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              >
-                <option value="">Selecione um usuário</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} - {user.email}
-                  </option>
-                ))}
-              </select>
-              {errors.user_id && (
-                <p className="mt-1 text-sm text-red-600">{errors.user_id.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Serviço
-              </label>
-              <select
-                {...register('service_id')}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              >
-                <option value="">Selecione um serviço</option>
-                {services.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name}
-                  </option>
-                ))}
-              </select>
-              {errors.service_id && (
-                <p className="mt-1 text-sm text-red-600">{errors.service_id.message}</p>
-              )}
-            </div>
-          </div>
-
-          <Input
-            label="Descrição"
-            placeholder="Descreva o problema ou solicitação"
-            error={errors.description?.message}
-            {...register('description')}
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input
-              label="CEP"
-              placeholder="00000-000"
-              error={errors.zip_code?.message}
-              {...register('zip_code')}
-            />
-            <Input
-              label="Endereço"
-              placeholder="Rua, Avenida, etc."
-              error={errors.address?.message}
-              {...register('address')}
-            />
-            <Input
-              label="Número"
-              placeholder="123"
-              error={errors.number?.message}
-              {...register('number')}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Cidade"
-              placeholder="São Paulo"
-              error={errors.city?.message}
-              {...register('city')}
-            />
-            <Input
-              label="Estado"
-              placeholder="SP"
-              error={errors.state?.message}
-              {...register('state')}
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowCreateModal(false)}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit">
-              Criar Manifesto
-            </Button>
-          </div>
-        </form>
+        <ManifestForm
+          onSubmit={handleCreateManifest}
+          onCancel={() => setShowCreateModal(false)}
+          selectedUser={selectedUser}
+          selectedService={formService}
+          onShowUserSelection={() => setShowUserSelectionModal(true)}
+          onShowServiceSelection={() => setShowServiceSelectionModal(true)}
+          userRole={user?.role}
+        />
       </Modal>
 
       {/* Modal de Edição */}
@@ -518,97 +600,17 @@ const Manifests: React.FC = () => {
         title="Editar Manifesto"
         size="lg"
       >
-        <form onSubmit={handleSubmit(handleUpdateManifest)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Usuário
-              </label>
-              <select
-                {...register('user_id')}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              >
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} - {user.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Serviço
-              </label>
-              <select
-                {...register('service_id')}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              >
-                {services.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <Input
-            label="Descrição"
-            placeholder="Descreva o problema ou solicitação"
-            error={errors.description?.message}
-            {...register('description')}
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input
-              label="CEP"
-              placeholder="00000-000"
-              error={errors.zip_code?.message}
-              {...register('zip_code')}
-            />
-            <Input
-              label="Endereço"
-              placeholder="Rua, Avenida, etc."
-              error={errors.address?.message}
-              {...register('address')}
-            />
-            <Input
-              label="Número"
-              placeholder="123"
-              error={errors.number?.message}
-              {...register('number')}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Cidade"
-              placeholder="São Paulo"
-              error={errors.city?.message}
-              {...register('city')}
-            />
-            <Input
-              label="Estado"
-              placeholder="SP"
-              error={errors.state?.message}
-              {...register('state')}
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowEditModal(false)}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit">
-              Atualizar Manifesto
-            </Button>
-          </div>
-        </form>
+        <ManifestForm
+          manifest={selectedManifest}
+          isEditing={true}
+          onSubmit={handleUpdateManifest}
+          onCancel={() => setShowEditModal(false)}
+          selectedUser={selectedUser}
+          selectedService={formService}
+          onShowUserSelection={() => setShowUserSelectionModal(true)}
+          onShowServiceSelection={() => setShowServiceSelectionModal(true)}
+          userRole={user?.role}
+        />
       </Modal>
 
       {/* Modal de Visualização */}
@@ -665,6 +667,13 @@ const Manifests: React.FC = () => {
               <p className="text-sm text-gray-900">CEP: {selectedManifest.zip_code}</p>
             </div>
 
+            {/* Anexos do Manifesto */}
+            <div className="pt-6">
+              <FilePreview 
+                attachments={selectedManifest.attachments || []}
+              />
+            </div>
+
             <div className="flex justify-end space-x-3 pt-4">
               <Button
                 variant="outline"
@@ -684,6 +693,20 @@ const Manifests: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Modal de Seleção de Usuário */}
+      <UserSelectionModal
+        isOpen={showUserSelectionModal}
+        onClose={() => setShowUserSelectionModal(false)}
+        onSelect={handleUserSelect}
+      />
+
+      {/* Modal de Seleção de Serviço */}
+      <ServiceSelectionModal
+        isOpen={showServiceSelectionModal}
+        onClose={() => setShowServiceSelectionModal(false)}
+        onSelect={handleServiceSelect}
+      />
     </div>
   );
 };

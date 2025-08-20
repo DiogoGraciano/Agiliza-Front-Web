@@ -12,7 +12,9 @@ export interface User {
   city?: string;
   state?: string;
   zip_code?: string;
-  is_admin?: boolean;
+  role?: string;
+  latitude?: string;
+  longitude?: string;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +39,12 @@ export interface Service {
   name: string;
   description: string;
   image?: string;
+  type_id?: number;
+  needs_attachment?: boolean;
+  needs_address?: boolean;
+  needs_phone?: boolean;
+  needs_birth_date?: boolean;
+  needs_cpf_cnpj?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -88,6 +96,7 @@ export interface ManifestAttachment {
   path: string;
   created_at: string;
   updated_at: string;
+  url?: string;
 }
 
 export interface LoginCredentials {
@@ -131,4 +140,20 @@ export interface PaginatedResponse<T> {
   last_page: number;
   per_page: number;
   total: number;
+}
+
+export interface FileUploadConfig {
+  maxFiles?: number;
+  maxSizePerFile?: number; // em MB
+  allowedTypes?: string[];
+  allowedExtensions?: string[];
+}
+
+export interface UploadedFile {
+  file: File;
+  id: string;
+  preview?: string;
+  progress?: number;
+  error?: string;
+  uploaded?: boolean;
 }

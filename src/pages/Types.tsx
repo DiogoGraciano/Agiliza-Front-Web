@@ -10,8 +10,10 @@ import {
   Calendar,
   Image as ImageIcon,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  FunnelX
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -53,23 +55,33 @@ const Types: React.FC = () => {
 
   useEffect(() => {
     fetchTypes();
-  }, [currentPage, statusFilter]);
+  }, [currentPage]); // Removidas dependências dos filtros para evitar loops
 
   const fetchTypes = async () => {
     try {
       setIsLoading(true);
-      let response;
       
-      if (statusFilter === 'all') {
-        response = await apiService.getTypes();
-      } else {
-        response = await apiService.getTypes(); // API não tem filtro por status para types
+      // Construir parâmetros de filtro
+      const params = new URLSearchParams();
+      
+      if (statusFilter !== 'all') {
+        params.append('is_active', statusFilter === 'active' ? 'true' : 'false');
       }
+      
+      if (searchTerm.trim()) {
+        params.append('name', searchTerm);
+      }
+      
+      // Adicionar página atual
+      params.append('page', currentPage.toString());
+      
+      // Fazer a requisição com filtros
+      const response = await apiService.getTypes(params.toString());
       
       setTypes(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
-      console.error('Erro ao carregar tipos:', error);
+      toast.error('Erro ao carregar tipos: ' + error);
     } finally {
       setIsLoading(false);
     }
@@ -81,8 +93,9 @@ const Types: React.FC = () => {
       setShowCreateModal(false);
       reset();
       fetchTypes();
+      toast.success('Tipo criado com sucesso!');
     } catch (error) {
-      console.error('Erro ao criar tipo:', error);
+      toast.error('Erro ao criar tipo: ' + error);
     }
   };
 
@@ -95,8 +108,9 @@ const Types: React.FC = () => {
       reset();
       setSelectedType(null);
       fetchTypes();
+      toast.success('Tipo atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar tipo:', error);
+      toast.error('Erro ao atualizar tipo: ' + error);
     }
   };
 
@@ -105,8 +119,9 @@ const Types: React.FC = () => {
       try {
         await apiService.deleteType(id);
         fetchTypes();
+        toast.success('Tipo excluído com sucesso!');
       } catch (error) {
-        console.error('Erro ao excluir tipo:', error);
+        toast.error('Erro ao excluir tipo: ' + error);
       }
     }
   };
@@ -118,8 +133,9 @@ const Types: React.FC = () => {
         is_active: !type.is_active,
       });
       fetchTypes();
+      toast.success('Status do tipo alterado com sucesso!');
     } catch (error) {
-      console.error('Erro ao alterar status do tipo:', error);
+      toast.error('Erro ao alterar status do tipo: ' + error);
     }
   };
 
@@ -135,14 +151,6 @@ const Types: React.FC = () => {
     setSelectedType(type);
     setShowViewModal(true);
   };
-
-  const filteredTypes = types.filter(type => {
-    const matchesSearch = type.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && type.is_active) ||
-                         (statusFilter === 'inactive' && !type.is_active);
-    return matchesSearch && matchesStatus;
-  });
 
   const columns = [
     {
@@ -234,6 +242,17 @@ const Types: React.FC = () => {
     },
   ];
 
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setCurrentPage(1);
+  };
+
+  const applyFilters = () => {
+    setCurrentPage(1);
+    fetchTypes();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -289,11 +308,19 @@ const Types: React.FC = () => {
           <div className="flex items-end">
             <Button
               variant="outline"
-              onClick={fetchTypes}
+              onClick={applyFilters}
               className="w-full"
             >
               <Filter className="h-4 w-4 mr-2" />
-              Atualizar Lista
+              Aplicar Filtros
+            </Button>
+            <Button
+              variant="outline"
+              onClick={clearFilters}
+              className="w-full ml-2"
+            >
+              <FunnelX className="h-4 w-4 mr-2" />  
+              Limpar Filtros
             </Button>
           </div>
         </div>
@@ -303,7 +330,7 @@ const Types: React.FC = () => {
       <Card>
         <Table
           columns={columns}
-          data={filteredTypes}
+          data={types}
           isLoading={isLoading}
           emptyMessage="Nenhum tipo encontrado"
         />

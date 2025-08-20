@@ -18,7 +18,7 @@ class ApiService {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost/api';
     this.api = axios.create({
       baseURL: this.baseURL,
       headers: {
@@ -82,8 +82,9 @@ class ApiService {
   }
 
   // Usuários (Admin)
-  async getUsers(): Promise<PaginatedResponse<User>> {
-    const response: AxiosResponse<PaginatedResponse<User>> = await this.api.get('/users');
+  async getUsers(params?: string): Promise<PaginatedResponse<User>> {
+    const url = params ? `/users?${params}` : '/users';
+    const response: AxiosResponse<PaginatedResponse<User>> = await this.api.get(url);
     return response.data;
   }
 
@@ -101,9 +102,13 @@ class ApiService {
     await this.api.delete(`/users/${id}`);
   }
 
+  // Remove método searchUsers pois não existe na documentação da API
+  // A busca é feita através dos filtros do getUsers
+
   // Serviços
-  async getServices(): Promise<PaginatedResponse<Service>> {
-    const response: AxiosResponse<PaginatedResponse<Service>> = await this.api.get('/services');
+  async getServices(params?: string): Promise<PaginatedResponse<Service>> {
+    const url = params ? `/services?${params}` : '/services';
+    const response: AxiosResponse<PaginatedResponse<Service>> = await this.api.get(url);
     return response.data;
   }
 
@@ -112,8 +117,8 @@ class ApiService {
     return response.data;
   }
 
-  async searchServices(query: string): Promise<Service[]> {
-    const response: AxiosResponse<Service[]> = await this.api.get(`/services/search?q=${query}`);
+  async searchServices(query: string): Promise<PaginatedResponse<Service>> {
+    const response: AxiosResponse<PaginatedResponse<Service>> = await this.api.get(`/services/search?q=${encodeURIComponent(query)}`);
     return response.data;
   }
 
@@ -132,8 +137,9 @@ class ApiService {
   }
 
   // Categorias
-  async getCategories(): Promise<PaginatedResponse<Category>> {
-    const response: AxiosResponse<PaginatedResponse<Category>> = await this.api.get('/categories');
+  async getCategories(params?: string): Promise<PaginatedResponse<Category>> {
+    const url = params ? `/categories?${params}` : '/categories';
+    const response: AxiosResponse<PaginatedResponse<Category>> = await this.api.get(url);
     return response.data;
   }
 
@@ -162,8 +168,9 @@ class ApiService {
   }
 
   // Tipos
-  async getTypes(): Promise<PaginatedResponse<Type>> {
-    const response: AxiosResponse<PaginatedResponse<Type>> = await this.api.get('/types');
+  async getTypes(params?: string): Promise<PaginatedResponse<Type>> {
+    const url = params ? `/types?${params}` : '/types';
+    const response: AxiosResponse<PaginatedResponse<Type>> = await this.api.get(url);
     return response.data;
   }
 
@@ -187,23 +194,44 @@ class ApiService {
   }
 
   // Manifestos
-  async getManifests(): Promise<PaginatedResponse<Manifest>> {
-    const response: AxiosResponse<PaginatedResponse<Manifest>> = await this.api.get('/manifests');
+  async getManifests(params?: string): Promise<PaginatedResponse<Manifest>> {
+    const url = params ? `/manifests?${params}` : '/manifests';
+    const response: AxiosResponse<PaginatedResponse<Manifest>> = await this.api.get(url);
     return response.data;
   }
 
-  async getManifestsByStatus(status: string): Promise<PaginatedResponse<Manifest>> {
-    const response: AxiosResponse<PaginatedResponse<Manifest>> = await this.api.get(`/manifests/status/${status}`);
-    return response.data;
-  }
-
-  async getManifestsByUser(userId: number): Promise<PaginatedResponse<Manifest>> {
-    const response: AxiosResponse<PaginatedResponse<Manifest>> = await this.api.get(`/manifests/user/${userId}`);
-    return response.data;
-  }
+  // Remove métodos específicos - os filtros são feitos através dos parâmetros do getManifests
 
   async createManifest(data: Omit<Manifest, 'id' | 'created_at' | 'updated_at'>): Promise<Manifest> {
     const response: AxiosResponse<Manifest> = await this.api.post('/manifests', data);
+    return response.data;
+  }
+
+  // Criar manifesto com anexos
+  async createManifestWithAttachments(
+    manifestData: Omit<Manifest, 'id' | 'created_at' | 'updated_at'>,
+    files: File[]
+  ): Promise<{ message: string; data: Manifest }> {
+    const formData = new FormData();
+    
+    // Adicionar dados do manifesto
+    Object.entries(manifestData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, value.toString());
+      }
+    });
+
+    // Adicionar arquivos
+    files.forEach((file, index) => {
+      formData.append(`attachments[${index}][file]`, file);
+    });
+
+    const response = await this.api.post('/manifests', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
+
     return response.data;
   }
 
@@ -222,8 +250,9 @@ class ApiService {
   }
 
   // Anexos
-  async getManifestAttachments(): Promise<PaginatedResponse<ManifestAttachment>> {
-    const response: AxiosResponse<PaginatedResponse<ManifestAttachment>> = await this.api.get('/manifest-attachments');
+  async getManifestAttachments(params?: string): Promise<PaginatedResponse<ManifestAttachment>> {
+    const url = params ? `/manifest-attachments?${params}` : '/manifest-attachments';
+    const response: AxiosResponse<PaginatedResponse<ManifestAttachment>> = await this.api.get(url);
     return response.data;
   }
 
@@ -244,6 +273,26 @@ class ApiService {
 
   async deleteAttachment(id: number): Promise<void> {
     await this.api.delete(`/manifest-attachments/${id}`);
+  }
+
+  // Upload de anexo com FormData
+  async uploadAttachment(
+    manifestId: number, 
+    file: File, 
+    onProgress?: (progressEvent: any) => void
+  ): Promise<{ message: string; data: ManifestAttachment }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('manifest_id', manifestId.toString());
+
+    const response = await this.api.post('/manifest-attachments', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: onProgress
+    });
+
+    return response.data;
   }
 }
 

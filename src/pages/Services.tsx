@@ -1,25 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Eye, 
-  Edit, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
   Trash2,
   Settings,
   Calendar,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Layers,
+  FunnelX
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import apiService from '../services/api';
-import type { Service } from '../types';
+import type { Service, Type } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import Textarea from '../components/ui/Textarea';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import SelectionModal from '../components/ui/SelectionModal';
 
 const serviceSchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
@@ -31,12 +36,16 @@ const Services: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [useSearchApi, setUseSearchApi] = useState(false);
+  const [selectedType, setSelectedType] = useState<Type | null>(null);
+  const [showTypeSelectionModal, setShowTypeSelectionModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [types, setTypes] = useState<Type[]>([]);
 
   const {
     register,
@@ -50,16 +59,42 @@ const Services: React.FC = () => {
 
   useEffect(() => {
     fetchServices();
-  }, [currentPage]);
+    fetchTypes();
+  }, [currentPage]); // Removidas dependências dos filtros para evitar loops
 
   const fetchServices = async () => {
     try {
       setIsLoading(true);
-      const response = await apiService.getServices();
+
+      let response;
+
+      if (useSearchApi && searchTerm.trim()) {
+        // Usar a API de busca quando especificamente solicitado
+        response = await apiService.searchServices(searchTerm);
+        // A API de busca não retorna paginação
+        setTotalPages(1);
+        setCurrentPage(1);
+      } else {
+        // Usar a API principal com filtros
+        const params = new URLSearchParams();
+
+        if (selectedType) {
+          params.append('type_id', selectedType.id.toString());
+        }
+
+        if (searchTerm.trim()) {
+          params.append('name', searchTerm);
+        }
+
+        params.append('page', currentPage.toString());
+
+        response = await apiService.getServices(params.toString());
+        setTotalPages(response.last_page);
+      }
+
       setServices(response.data);
-      setTotalPages(response.last_page);
     } catch (error) {
-      console.error('Erro ao carregar serviços:', error);
+      toast.error('Erro ao carregar serviços:');
     } finally {
       setIsLoading(false);
     }
@@ -71,22 +106,24 @@ const Services: React.FC = () => {
       setShowCreateModal(false);
       reset();
       fetchServices();
+      toast.success('Serviço criado com sucesso!');
     } catch (error) {
-      console.error('Erro ao criar serviço:', error);
+      toast.error('Erro ao criar serviço:');
     }
   };
 
   const handleUpdateService = async (data: any) => {
     if (!selectedService) return;
-    
+
     try {
       await apiService.updateService(selectedService.id, data);
       setShowEditModal(false);
       reset();
       setSelectedService(null);
       fetchServices();
+      toast.success('Serviço atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar serviço:', error);
+      toast.error('Erro ao atualizar serviço:');
     }
   };
 
@@ -95,8 +132,9 @@ const Services: React.FC = () => {
       try {
         await apiService.deleteService(id);
         fetchServices();
+        toast.success('Serviço excluído com sucesso!');
       } catch (error) {
-        console.error('Erro ao excluir serviço:', error);
+        toast.error('Erro ao excluir serviço:');
       }
     }
   };
@@ -114,11 +152,7 @@ const Services: React.FC = () => {
     setShowViewModal(true);
   };
 
-  const filteredServices = services.filter(service => {
-    const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         service.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  // Filtros são aplicados no backend através dos parâmetros da API
 
   const columns = [
     {
@@ -204,6 +238,27 @@ const Services: React.FC = () => {
     },
   ];
 
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedType(null);
+    setUseSearchApi(false);
+    setCurrentPage(1);
+  };
+
+  const fetchTypes = async () => {
+    try {
+      const response = await apiService.getTypes();
+      setTypes(response.data);
+    } catch (error) {
+      toast.error('Erro ao carregar tipos:');
+    }
+  };
+
+  const applyFilters = () => {
+    setUseSearchApi(false);
+    fetchServices();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -225,31 +280,65 @@ const Services: React.FC = () => {
 
       {/* Filtros */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Buscar
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar por nome ou descrição..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Buscar por Nome
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setUseSearchApi(false);
+                  }}
+                  className="pl-10"
+                />
+              </div>
             </div>
-          </div>
-          
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              onClick={fetchServices}
-              className="w-full"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Atualizar Lista
-            </Button>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo
+              </label>
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Selecione um tipo..."
+                  value={selectedType ? selectedType.name : ''}
+                  readOnly
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowTypeSelectionModal(true)}
+                  size="sm"
+                >
+                  Selecionar
+                </Button>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="w-full"
+              >
+                <FunnelX className="h-4 w-4 mr-2" />
+                Limpar Filtros
+              </Button>
+              <Button
+                variant="outline"
+                onClick={applyFilters}
+                className="w-full"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Aplicar Filtros
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
@@ -258,7 +347,7 @@ const Services: React.FC = () => {
       <Card>
         <Table
           columns={columns}
-          data={filteredServices}
+          data={services}
           isLoading={isLoading}
           emptyMessage="Nenhum serviço encontrado"
         />
@@ -306,20 +395,13 @@ const Services: React.FC = () => {
             {...register('name')}
           />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descrição
-            </label>
-            <textarea
-              {...register('description')}
-              rows={4}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              placeholder="Descreva detalhadamente o serviço oferecido..."
-            />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-            )}
-          </div>
+          <Textarea
+            label="Descrição"
+            rows={4}
+            placeholder="Descreva detalhadamente o serviço oferecido..."
+            error={errors.description?.message}
+            {...register('description')}
+          />
 
           <Input
             label="URL da Imagem (opcional)"
@@ -359,20 +441,13 @@ const Services: React.FC = () => {
             {...register('name')}
           />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descrição
-            </label>
-            <textarea
-              {...register('description')}
-              rows={4}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              placeholder="Descreva detalhadamente o serviço oferecido..."
-            />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-            )}
-          </div>
+          <Textarea
+            label="Descrição"
+            rows={4}
+            placeholder="Descreva detalhadamente o serviço oferecido..."
+            error={errors.description?.message}
+            {...register('description')}
+          />
 
           <Input
             label="URL da Imagem (opcional)"
@@ -473,6 +548,31 @@ const Services: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Modal de Seleção de Tipo */}
+      <SelectionModal
+        isOpen={showTypeSelectionModal}
+        onClose={() => setShowTypeSelectionModal(false)}
+        title="Selecionar Tipo"
+        items={types}
+        onSelect={(type) => {
+          setSelectedType(type as Type);
+          setShowTypeSelectionModal(false);
+        }}
+        placeholder="Buscar por nome de tipo..."
+        emptyMessage="Nenhum tipo encontrado"
+        renderItem={(type) => (
+          <div className="flex items-center p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+            <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <Layers className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="ml-3 flex-1">
+              <p className="text-sm font-medium text-gray-900">{type.name}</p>
+              <p className="text-xs text-gray-500">ID: {type.id}</p>
+            </div>
+          </div>
+        )}
+      />
     </div>
   );
 };

@@ -1,19 +1,29 @@
 import React, { forwardRef } from 'react';
 import { clsx } from 'clsx';
 
-interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'> {
   label?: string;
   error?: string;
   helperText?: string;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
   variant?: 'default' | 'modern' | 'minimal';
   size?: 'sm' | 'md' | 'lg';
+  resize?: 'none' | 'vertical' | 'horizontal' | 'both';
 }
 
-const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, leftIcon, rightIcon, className, id, variant = 'modern', size = 'md', ...props }, ref) => {
-    const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ 
+    label, 
+    error, 
+    helperText, 
+    className, 
+    id, 
+    variant = 'modern', 
+    size = 'md', 
+    resize = 'vertical',
+    rows = 4,
+    ...props 
+  }, ref) => {
+    const inputId = id || `textarea-${Math.random().toString(36).substr(2, 9)}`;
 
     const sizeClasses = {
       sm: 'py-2 px-3 text-sm',
@@ -27,6 +37,13 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       minimal: 'border-0 border-b-2 border-gray-200 focus:border-teal-500 rounded-none bg-transparent',
     };
 
+    const resizeClasses = {
+      none: 'resize-none',
+      vertical: 'resize-y',
+      horizontal: 'resize-x',
+      both: 'resize',
+    };
+
     return (
       <div className="w-full">
         {label && (
@@ -38,31 +55,28 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           </label>
         )}
         <div className="relative">
-          {leftIcon && (
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <div className="h-5 w-5 text-gray-400">{leftIcon}</div>
-            </div>
-          )}
-          <input
+          <textarea
             ref={ref}
             id={inputId}
+            rows={rows}
             className={clsx(
               'block w-full outline-none transition-all duration-200 placeholder-gray-400',
               variantClasses[variant],
               sizeClasses[size],
+              resizeClasses[resize],
               {
-                'pl-12': leftIcon,
-                'pr-12': rightIcon,
                 'border-red-300 focus:border-red-500 focus:ring-red-500/20': error,
                 'hover:shadow-md': variant === 'modern',
+                'min-h-[100px]': variant === 'modern', // Ensure minimum height for modern variant
               },
               className
             )}
             {...props}
           />
-          {rightIcon && (
-            <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
-              <div className="h-5 w-5 text-gray-400">{rightIcon}</div>
+          {/* Character count indicator - can be enabled via props if needed */}
+          {props.maxLength && (
+            <div className="absolute bottom-2 right-3 text-xs text-gray-400">
+              {(props.value?.toString().length || 0)} / {props.maxLength}
             </div>
           )}
         </div>
@@ -80,6 +94,6 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
   }
 );
 
-Input.displayName = 'Input';
+Textarea.displayName = 'Textarea';
 
-export default Input;
+export default Textarea;
