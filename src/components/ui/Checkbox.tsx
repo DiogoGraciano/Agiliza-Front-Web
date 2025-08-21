@@ -19,6 +19,8 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     id, 
     variant = 'modern', 
     size = 'md',
+    checked,
+    onChange,
     ...props 
   }, ref) => {
     const inputId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
@@ -38,7 +40,13 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     const variantClasses = {
       default: 'text-blue-600 focus:ring-blue-500 border-gray-300 rounded',
       modern: 'text-teal-600 focus:ring-teal-500 focus:ring-2 focus:ring-offset-2 border-2 border-gray-300 rounded-md transition-all duration-200',
-      card: 'sr-only', // Hidden for card-style checkboxes
+      card: 'sr-only',
+    };
+
+    const checkedVariantClasses = {
+      default: 'bg-blue-600 border-blue-600 text-white',
+      modern: 'bg-teal-600 border-teal-600 text-white',
+      card: '',
     };
 
     if (variant === 'card') {
@@ -48,7 +56,7 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             htmlFor={inputId}
             className={clsx(
               'relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all duration-200',
-              props.checked 
+              checked 
                 ? 'border-teal-500 bg-teal-50 shadow-md' 
                 : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm',
               className
@@ -59,16 +67,18 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
               id={inputId}
               type="checkbox"
               className="sr-only"
+              checked={checked}
+              onChange={onChange}
               {...props}
             />
             <div className={clsx(
               'flex items-center justify-center rounded-lg transition-all duration-200',
               sizeClasses[size],
-              props.checked 
-                ? 'bg-teal-600 text-white' 
+              checked 
+                ? 'bg-teal-600 text-white border-teal-600' 
                 : 'bg-white border-2 border-gray-300'
             )}>
-              {props.checked && <Check className="h-3 w-3" />}
+              {checked && <Check className="h-4 w-4 text-white font-bold" />}
             </div>
             <div className="ml-3 flex-1">
               {label && (
@@ -97,16 +107,19 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     }
 
     return (
-      <div className="flex items-start space-x-3">
-        <div className="relative">
+      <div className="flex items-center justify-center space-x-3">
+        <div className="relative flex items-center justify-center">
           <input
             ref={ref}
             id={inputId}
             type="checkbox"
+            checked={checked}
+            onChange={onChange}
             className={clsx(
-              'appearance-none cursor-pointer',
+              'appearance-none cursor-pointer relative',
               variantClasses[variant],
               sizeClasses[size],
+              checked && checkedVariantClasses[variant],
               {
                 'border-red-500 focus:ring-red-500': error,
               },
@@ -114,9 +127,9 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             )}
             {...props}
           />
-          {props.checked && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <Check className="h-3 w-3 text-white" />
+          {checked && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <Check className="h-4 w-4 text-white font-bold" />
             </div>
           )}
         </div>

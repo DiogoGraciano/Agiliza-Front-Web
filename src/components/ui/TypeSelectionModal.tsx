@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { FileText } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import apiService from '../../services/api';
-import type { Service as ServiceType } from '../../types';
+import type { Type as TypeType } from '../../types';
 import Button from './Button';
 import Input from './Input';
 import Table from './Table';
 import Modal from './Modal';
 
-interface ServiceSelectionModalProps {
+interface TypeSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (service: ServiceType) => void;
+  onSelect: (type: TypeType) => void;
 }
 
-const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
+const TypeSelectionModal: React.FC<TypeSelectionModalProps> = ({
   isOpen,
   onClose,
   onSelect,
 }) => {
-  const [services, setServices] = useState<ServiceType[]>([]);
-  const [filteredServices, setFilteredServices] = useState<ServiceType[]>([]);
+  const [types, setTypes] = useState<TypeType[]>([]);
+  const [filteredTypes, setFilteredTypes] = useState<TypeType[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,30 +27,29 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      fetchServices();
+      fetchTypes();
     }
   }, [isOpen, currentPage]);
 
   useEffect(() => {
     if (searchTerm.trim()) {
-      const filtered = services.filter(service =>
-        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchTerm.toLowerCase())
+      const filtered = types.filter(type =>
+        type.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      setFilteredServices(filtered);
+      setFilteredTypes(filtered);
     } else {
-      setFilteredServices(services);
+      setFilteredTypes(types);
     }
-  }, [searchTerm, services]);
+  }, [searchTerm, types]);
 
-  const fetchServices = async () => {
+  const fetchTypes = async () => {
     try {
       setIsLoading(true);
-      const response = await apiService.getServices({}, currentPage);
-      setServices(response.data);
+      const response = await apiService.getTypes({}, currentPage);
+      setTypes(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
-      console.error('Erro ao carregar serviços:', error);
+      console.error('Erro ao carregar tipos:', error);
     } finally {
       setIsLoading(false);
     }
@@ -60,9 +59,9 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     if (searchTerm.trim()) {
       try {
         setIsLoading(true);
-        const response = await apiService.searchServices(searchTerm);
-        setServices(response);
-        setTotalPages(1);
+        const response = await apiService.getTypes({ name: searchTerm }, 1);
+        setTypes(response.data);
+        setTotalPages(response.last_page);
         setCurrentPage(1);
       } catch (error) {
         console.error('Erro na busca:', error);
@@ -70,12 +69,12 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
         setIsLoading(false);
       }
     } else {
-      fetchServices();
+      fetchTypes();
     }
   };
 
-  const handleServiceSelect = (service: ServiceType) => {
-    onSelect(service);
+  const handleTypeSelect = (type: TypeType) => {
+    onSelect(type);
     onClose();
   };
 
@@ -87,32 +86,46 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     {
       key: 'name',
       header: 'Nome',
-      render: (service: ServiceType) => (
+      render: (type: TypeType) => (
         <div className="flex items-center space-x-3">
-          <FileText className="h-5 w-5 text-blue-500" />
+          <Layers className="h-5 w-5 text-purple-500" />
           <div>
-            <p className="text-sm font-medium text-gray-900">{service.name}</p>
-            <p className="text-xs text-gray-500">{service.description}</p>
+            <p className="text-sm font-medium text-gray-900">{type.name}</p>
+            <p className="text-xs text-gray-500">
+              {type.is_active ? 'Ativo' : 'Inativo'}
+            </p>
           </div>
         </div>
       )
     },
     {
-      key: 'type',
-      header: 'Tipo',
-      render: (service: ServiceType) => (
-        <span className="text-sm text-gray-900">{service.type?.name || 'N/A'}</span>
+      key: 'image',
+      header: 'Imagem',
+      render: (type: TypeType) => (
+        <div className="flex items-center space-x-2">
+          {type.image ? (
+            <img 
+              src={type.image} 
+              alt={type.name}
+              className="h-8 w-8 rounded object-cover"
+            />
+          ) : (
+            <div className="h-8 w-8 rounded bg-gray-200 flex items-center justify-center">
+              <Layers className="h-4 w-4 text-gray-400" />
+            </div>
+          )}
+        </div>
       )
     },
     {
       key: 'actions',
       header: 'Ações',
-      render: (service: ServiceType) => (
+      render: (type: TypeType) => (
         <Button
-          onClick={() => handleServiceSelect(service)}
+          onClick={() => handleTypeSelect(type)}
           variant="outline"
           size="sm"
-          className="text-blue-600 hover:text-blue-700"
+          className="text-purple-600 hover:text-purple-700"
         >
           Selecionar
         </Button>
@@ -124,7 +137,7 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Selecionar Serviço"
+      title="Selecionar Tipo"
       size="xl"
     >
       <div className="space-y-6">
@@ -132,7 +145,7 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
         <div className="flex space-x-3">
           <Input
             type="text"
-            placeholder="Buscar por nome ou descrição..."
+            placeholder="Buscar por nome do tipo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -142,7 +155,7 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
             Buscar
           </Button>
           {searchTerm && (
-            <Button onClick={() => { setSearchTerm(''); fetchServices(); }} variant="outline">
+            <Button onClick={() => { setSearchTerm(''); fetchTypes(); }} variant="outline">
               Limpar
             </Button>
           )}
@@ -152,14 +165,14 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
         <div className="max-h-[60vh] overflow-y-auto">
           {isLoading ? (
             <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
             </div>
           ) : (
             <>
               <Table
-                data={filteredServices}
+                data={filteredTypes}
                 columns={tableColumns}
-                emptyMessage="Nenhum serviço encontrado"
+                emptyMessage="Nenhum tipo encontrado"
               />
               
               {/* Paginação */}
@@ -203,4 +216,4 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
   );
 };
 
-export default ServiceSelectionModal;
+export default TypeSelectionModal;

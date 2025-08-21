@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { FileText } from 'lucide-react';
+import { Tag } from 'lucide-react';
 import apiService from '../../services/api';
-import type { Service as ServiceType } from '../../types';
+import type { Category as CategoryType } from '../../types';
 import Button from './Button';
 import Input from './Input';
 import Table from './Table';
 import Modal from './Modal';
 
-interface ServiceSelectionModalProps {
+interface CategorySelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (service: ServiceType) => void;
+  onSelect: (category: CategoryType) => void;
 }
 
-const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
+const CategorySelectionModal: React.FC<CategorySelectionModalProps> = ({
   isOpen,
   onClose,
   onSelect,
 }) => {
-  const [services, setServices] = useState<ServiceType[]>([]);
-  const [filteredServices, setFilteredServices] = useState<ServiceType[]>([]);
+  const [categories, setCategories] = useState<CategoryType[]>([]);
+  const [filteredCategories, setFilteredCategories] = useState<CategoryType[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,30 +27,29 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      fetchServices();
+      fetchCategories();
     }
   }, [isOpen, currentPage]);
 
   useEffect(() => {
     if (searchTerm.trim()) {
-      const filtered = services.filter(service =>
-        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchTerm.toLowerCase())
+      const filtered = categories.filter(category =>
+        category.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      setFilteredServices(filtered);
+      setFilteredCategories(filtered);
     } else {
-      setFilteredServices(services);
+      setFilteredCategories(categories);
     }
-  }, [searchTerm, services]);
+  }, [searchTerm, categories]);
 
-  const fetchServices = async () => {
+  const fetchCategories = async () => {
     try {
       setIsLoading(true);
-      const response = await apiService.getServices({}, currentPage);
-      setServices(response.data);
+      const response = await apiService.getCategories({}, currentPage);
+      setCategories(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
-      console.error('Erro ao carregar serviços:', error);
+      console.error('Erro ao carregar categorias:', error);
     } finally {
       setIsLoading(false);
     }
@@ -60,9 +59,9 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     if (searchTerm.trim()) {
       try {
         setIsLoading(true);
-        const response = await apiService.searchServices(searchTerm);
-        setServices(response);
-        setTotalPages(1);
+        const response = await apiService.getCategories({ name: searchTerm }, 1);
+        setCategories(response.data);
+        setTotalPages(response.last_page);
         setCurrentPage(1);
       } catch (error) {
         console.error('Erro na busca:', error);
@@ -70,12 +69,12 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
         setIsLoading(false);
       }
     } else {
-      fetchServices();
+      fetchCategories();
     }
   };
 
-  const handleServiceSelect = (service: ServiceType) => {
-    onSelect(service);
+  const handleCategorySelect = (category: CategoryType) => {
+    onSelect(category);
     onClose();
   };
 
@@ -87,32 +86,36 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     {
       key: 'name',
       header: 'Nome',
-      render: (service: ServiceType) => (
+      render: (category: CategoryType) => (
         <div className="flex items-center space-x-3">
-          <FileText className="h-5 w-5 text-blue-500" />
+          <Tag className="h-5 w-5 text-green-500" />
           <div>
-            <p className="text-sm font-medium text-gray-900">{service.name}</p>
-            <p className="text-xs text-gray-500">{service.description}</p>
+            <p className="text-sm font-medium text-gray-900">{category.name}</p>
+            <p className="text-xs text-gray-500">
+              {category.is_active ? 'Ativa' : 'Inativa'}
+            </p>
           </div>
         </div>
       )
     },
     {
-      key: 'type',
-      header: 'Tipo',
-      render: (service: ServiceType) => (
-        <span className="text-sm text-gray-900">{service.type?.name || 'N/A'}</span>
+      key: 'services_count',
+      header: 'Serviços',
+      render: (category: CategoryType) => (
+        <span className="text-sm text-gray-900">
+          {category.services?.length || 0} serviço(s)
+        </span>
       )
     },
     {
       key: 'actions',
       header: 'Ações',
-      render: (service: ServiceType) => (
+      render: (category: CategoryType) => (
         <Button
-          onClick={() => handleServiceSelect(service)}
+          onClick={() => handleCategorySelect(category)}
           variant="outline"
           size="sm"
-          className="text-blue-600 hover:text-blue-700"
+          className="text-green-600 hover:text-green-700"
         >
           Selecionar
         </Button>
@@ -124,7 +127,7 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Selecionar Serviço"
+      title="Selecionar Categoria"
       size="xl"
     >
       <div className="space-y-6">
@@ -132,7 +135,7 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
         <div className="flex space-x-3">
           <Input
             type="text"
-            placeholder="Buscar por nome ou descrição..."
+            placeholder="Buscar por nome da categoria..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -142,7 +145,7 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
             Buscar
           </Button>
           {searchTerm && (
-            <Button onClick={() => { setSearchTerm(''); fetchServices(); }} variant="outline">
+            <Button onClick={() => { setSearchTerm(''); fetchCategories(); }} variant="outline">
               Limpar
             </Button>
           )}
@@ -152,14 +155,14 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
         <div className="max-h-[60vh] overflow-y-auto">
           {isLoading ? (
             <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
             </div>
           ) : (
             <>
               <Table
-                data={filteredServices}
+                data={filteredCategories}
                 columns={tableColumns}
-                emptyMessage="Nenhum serviço encontrado"
+                emptyMessage="Nenhuma categoria encontrada"
               />
               
               {/* Paginação */}
@@ -203,4 +206,4 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
   );
 };
 
-export default ServiceSelectionModal;
+export default CategorySelectionModal;

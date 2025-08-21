@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
-  Search, 
   Filter, 
   Eye, 
   Edit, 
   Trash2,
   Layers,
   Calendar,
-  Image as ImageIcon,
-  ToggleLeft,
-  ToggleRight,
+  Settings,
   FunnelX
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -18,12 +15,14 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import apiService from '../services/api';
-import type { Type } from '../types';
+import type { Type, TypeFilters } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import Select from '../components/ui/Select';
+import Checkbox from '../components/ui/Checkbox';
 
 const typeSchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
@@ -49,6 +48,7 @@ const Types: React.FC = () => {
     reset,
     formState: { errors },
     setValue,
+    watch,
   } = useForm({
     resolver: yupResolver(typeSchema),
   });
@@ -61,22 +61,32 @@ const Types: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // Construir parâmetros de filtro
-      const params = new URLSearchParams();
+      // Construir filtros conforme a documentação da API
+      const filters: TypeFilters = {};
       
       if (statusFilter !== 'all') {
-        params.append('is_active', statusFilter === 'active' ? 'true' : 'false');
+        filters.is_active = statusFilter === 'active';
       }
       
       if (searchTerm.trim()) {
-        params.append('name', searchTerm);
+        filters.name = searchTerm;
       }
       
-      // Adicionar página atual
-      params.append('page', currentPage.toString());
-      
       // Fazer a requisição com filtros
-      const response = await apiService.getTypes(params.toString());
+      const response = await apiService.getTypes(filters, currentPage);
+      
+      // Log temporário para debug
+      console.log('Dados dos tipos:', response.data);
+      if (response.data.length > 0) {
+        console.log('Primeiro tipo:', response.data[0]);
+        console.log('Campos do primeiro tipo:', {
+          id: response.data[0].id,
+          name: response.data[0].name,
+          image: response.data[0].image,
+          is_active: response.data[0].is_active,
+          created_at: response.data[0].created_at
+        });
+      }
       
       setTypes(response.data);
       setTotalPages(response.last_page);
@@ -85,6 +95,18 @@ const Types: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const applyFilters = () => {
+    setCurrentPage(1); // Reset para primeira página ao aplicar filtros
+    fetchTypes();
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setCurrentPage(1);
+    fetchTypes();
   };
 
   const handleCreateType = async (data: any) => {
@@ -101,7 +123,6 @@ const Types: React.FC = () => {
 
   const handleUpdateType = async (data: any) => {
     if (!selectedType) return;
-    
     try {
       await apiService.updateType(selectedType.id, data);
       setShowEditModal(false);
@@ -114,28 +135,14 @@ const Types: React.FC = () => {
     }
   };
 
-  const handleDeleteType = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir este tipo?')) {
-      try {
-        await apiService.deleteType(id);
-        fetchTypes();
-        toast.success('Tipo excluído com sucesso!');
-      } catch (error) {
-        toast.error('Erro ao excluir tipo: ' + error);
-      }
-    }
-  };
-
-  const handleToggleStatus = async (type: Type) => {
+  const handleDeleteType = async (type: Type) => {
+    if (!confirm('Tem certeza que deseja excluir este tipo?')) return;
     try {
-      await apiService.updateType(type.id, {
-        ...type,
-        is_active: !type.is_active,
-      });
+      await apiService.deleteType(type.id);
       fetchTypes();
-      toast.success('Status do tipo alterado com sucesso!');
+      toast.success('Tipo excluído com sucesso!');
     } catch (error) {
-      toast.error('Erro ao alterar status do tipo: ' + error);
+      toast.error('Erro ao excluir tipo: ' + error);
     }
   };
 
@@ -152,121 +159,104 @@ const Types: React.FC = () => {
     setShowViewModal(true);
   };
 
-  const columns = [
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const tableColumns = [
     {
       key: 'id',
       header: 'ID',
-      className: 'w-16',
+      render: (type: Type) => <span className="font-mono text-sm">{type.id}</span>
     },
     {
       key: 'name',
       header: 'Nome',
-      render: (value: string) => (
-        <div className="flex items-center">
-          <div className="h-8 w-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
-            <Layers className="h-5 w-5 text-indigo-600" />
-          </div>
-          <span className="text-sm font-medium text-gray-900">{value}</span>
+      render: (type: Type) => (
+        <div className="flex items-center space-x-3">
+          {type.image ? (
+            <img src={type.image} alt={type.name} className="h-8 w-8 rounded object-cover" />
+          ) : (
+            <Layers className="h-8 w-8 text-blue-500" />
+          )}
+          <span className="text-sm font-medium text-gray-900">{type.name}</span>
         </div>
-      ),
-    },
-    {
-      key: 'image',
-      header: 'Imagem',
-      render: (value: string) => (
-        <div className="flex items-center">
-          <ImageIcon className="h-4 w-4 text-gray-400 mr-2" />
-          <span className="text-sm text-gray-900">
-            {value ? 'Sim' : 'Não'}
-          </span>
-        </div>
-      ),
+      )
     },
     {
       key: 'is_active',
       header: 'Status',
-      render: (value: boolean, item: Type) => (
-        <button
-          onClick={() => handleToggleStatus(item)}
-          className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            value 
-              ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-              : 'bg-red-100 text-red-800 hover:bg-red-200'
-          }`}
-        >
-          {value ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-          <span>{value ? 'Ativo' : 'Inativo'}</span>
-        </button>
-      ),
+      render: (type: Type) => (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          type.is_active 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {type.is_active ? 'Ativo' : 'Inativo'}
+        </span>
+      )
     },
     {
       key: 'created_at',
-      header: 'Data de Criação',
-      render: (value: string) => (
-        <div className="flex items-center">
-          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+      header: 'Data',
+      render: (type: Type) => (
+        <div className="flex items-center space-x-2">
+          <Calendar className="h-4 w-4 text-gray-500" />
           <span className="text-sm text-gray-900">
-            {new Date(value).toLocaleDateString('pt-BR')}
+            {new Date(type.created_at).toLocaleDateString('pt-BR')}
           </span>
         </div>
-      ),
+      )
     },
     {
       key: 'actions',
       header: 'Ações',
-      render: (_: any, item: Type) => (
-        <div className="flex space-x-2">
+      render: (type: Type) => (
+        <div className="flex items-center space-x-2">
           <Button
+            onClick={() => openViewModal(type)}
             variant="ghost"
             size="sm"
-            onClick={() => openViewModal(item)}
+            className="text-blue-600 hover:text-blue-700"
+            title="Visualizar"
           >
             <Eye className="h-4 w-4" />
           </Button>
+          
           <Button
+            onClick={() => openEditModal(type)}
             variant="ghost"
             size="sm"
-            onClick={() => openEditModal(item)}
+            className="text-green-600 hover:text-green-700"
+            title="Editar"
           >
             <Edit className="h-4 w-4" />
           </Button>
+          
           <Button
+            onClick={() => handleDeleteType(type)}
             variant="ghost"
             size="sm"
-            onClick={() => handleDeleteType(item.id)}
+            className="text-red-600 hover:text-red-700"
+            title="Excluir"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      ),
-    },
+      )
+    }
   ];
-
-  const clearFilters = () => {
-    setSearchTerm('');
-    setStatusFilter('all');
-    setCurrentPage(1);
-  };
-
-  const applyFilters = () => {
-    setCurrentPage(1);
-    fetchTypes();
-  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tipos</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gerencie todos os tipos de serviços do sistema
-          </p>
+          <p className="text-gray-600">Gerencie todos os tipos de serviços do sistema</p>
         </div>
-        <Button
-          onClick={() => setShowCreateModal(true)}
-          className="mt-4 sm:mt-0"
-        >
+        
+        <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Novo Tipo
         </Button>
@@ -274,136 +264,144 @@ const Types: React.FC = () => {
 
       {/* Filtros */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Buscar
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Filtros</h3>
+            <div className="flex items-center space-x-2">
+              <Button onClick={applyFilters} variant="outline" size="sm">
+                <Filter className="h-4 w-4 mr-2" />
+                Aplicar
+              </Button>
+              <Button onClick={clearFilters} variant="outline" size="sm">
+                <FunnelX className="h-4 w-4 mr-2" />
+                Limpar
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {/* Busca por nome */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Buscar por nome
+              </label>
               <Input
-                placeholder="Buscar por nome..."
+                type="text"
+                placeholder="Digite para buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+              />
+            </div>
+
+            {/* Filtro por status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <Select
+                value={statusFilter}
+                onChange={(value) => setStatusFilter(value as string)}
+                options={[
+                  { value: 'all', label: 'Todos os Status' },
+                  { value: 'active', label: 'Ativos' },
+                  { value: 'inactive', label: 'Inativos' },
+                ]}
               />
             </div>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            >
-              <option value="all">Todos</option>
-              <option value="active">Ativos</option>
-              <option value="inactive">Inativos</option>
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              onClick={applyFilters}
-              className="w-full"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Aplicar Filtros
-            </Button>
-            <Button
-              variant="outline"
-              onClick={clearFilters}
-              className="w-full ml-2"
-            >
-              <FunnelX className="h-4 w-4 mr-2" />  
-              Limpar Filtros
-            </Button>
-          </div>
         </div>
       </Card>
 
-      {/* Tabela */}
+      {/* Tabela de Tipos */}
       <Card>
-        <Table
-          columns={columns}
-          data={types}
-          isLoading={isLoading}
-          emptyMessage="Nenhum tipo encontrado"
-        />
-      </Card>
-
-      {/* Paginação */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Página {currentPage} de {totalPages}
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Próxima
-            </Button>
-          </div>
+        <div className="p-6">
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <>
+              <Table
+                data={types}
+                columns={tableColumns}
+                emptyMessage="Nenhum tipo encontrado"
+              />
+              
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center space-x-2 mt-6">
+                  <Button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Anterior
+                  </Button>
+                  
+                  <span className="text-sm text-gray-700">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  
+                  <Button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
+      </Card>
 
       {/* Modal de Criação */}
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Novo Tipo"
-        size="lg"
+        title="Criar Novo Tipo"
+        size="xl"
       >
-        <form onSubmit={handleSubmit(handleCreateType)} className="space-y-4">
-          <Input
-            label="Nome do Tipo"
-            placeholder="Ex: Urgente"
-            error={errors.name?.message}
-            {...register('name')}
-          />
-
-          <Input
-            label="URL da Imagem (opcional)"
-            placeholder="https://exemplo.com/icone.png"
-            error={errors.image?.message}
-            {...register('image')}
-            helperText="URL de um ícone representativo do tipo"
-          />
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="is_active"
-              {...register('is_active')}
-              defaultChecked={true}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
-              Tipo Ativo
+        <form onSubmit={handleSubmit(handleCreateType)} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nome *
             </label>
+            <Input
+              {...register('name')}
+              placeholder="Nome do tipo"
+              error={errors.name?.message}
+            />
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Imagem (URL)
+            </label>
+            <Input
+              {...register('image')}
+              placeholder="https://example.com/icon.png"
+              error={errors.image?.message}
+            />
+          </div>
+
+          <div>
+            <Checkbox
+              label="Tipo ativo"
+              onChange={(e) => setValue('is_active', e.target.checked)}
+              checked={watch('is_active')} 
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button
               type="button"
-              variant="outline"
               onClick={() => setShowCreateModal(false)}
+              variant="outline"
             >
               Cancelar
             </Button>
@@ -419,41 +417,46 @@ const Types: React.FC = () => {
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         title="Editar Tipo"
-        size="lg"
+        size="xl"
       >
-        <form onSubmit={handleSubmit(handleUpdateType)} className="space-y-4">
-          <Input
-            label="Nome do Tipo"
-            placeholder="Ex: Urgente"
-            error={errors.name?.message}
-            {...register('name')}
-          />
-
-          <Input
-            label="URL da Imagem (opcional)"
-            placeholder="https://exemplo.com/icone.png"
-            error={errors.image?.message}
-            {...register('image')}
-            helperText="URL de um ícone representativo do tipo"
-          />
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="edit_is_active"
-              {...register('is_active')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+        <form onSubmit={handleSubmit(handleUpdateType)} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nome *
+            </label>
+            <Input
+              {...register('name')}
+              placeholder="Nome do tipo"
+              error={errors.name?.message}
             />
-            <label htmlFor="edit_is_active" className="text-sm font-medium text-gray-700">
-              Tipo Ativo
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Imagem (URL)
+            </label>
+            <Input
+              {...register('image')}
+              placeholder="https://example.com/icon.png"
+              error={errors.image?.message}
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center space-x-2">
+              <Checkbox
+                label="Tipo ativo"
+                onChange={(e) => setValue('is_active', e.target.checked)}
+                checked={watch('is_active')} 
+              />
             </label>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button
               type="button"
-              variant="outline"
               onClick={() => setShowEditModal(false)}
+              variant="outline"
             >
               Cancelar
             </Button>
@@ -468,82 +471,85 @@ const Types: React.FC = () => {
       <Modal
         isOpen={showViewModal}
         onClose={() => setShowViewModal(false)}
-        title="Detalhes do Tipo"
-        size="lg"
+        title="Visualizar Tipo"
+        size="xl"
       >
         {selectedType && (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className="h-16 w-16 bg-indigo-100 rounded-lg flex items-center justify-center">
-                <Layers className="h-8 w-8 text-indigo-600" />
-              </div>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-medium text-gray-900">{selectedType.name}</h3>
-                <p className="text-sm text-gray-500">Tipo de serviço</p>
-                <div className="flex items-center mt-1">
-                  {selectedType.is_active ? (
-                    <ToggleRight className="h-4 w-4 text-green-600 mr-1" />
-                  ) : (
-                    <ToggleLeft className="h-4 w-4 text-red-600 mr-1" />
-                  )}
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    selectedType.is_active 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {selectedType.is_active ? 'Ativo' : 'Inativo'}
-                  </span>
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Informações do Tipo</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">ID</label>
+                    <p className="text-sm text-gray-900">{selectedType.id}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Nome</label>
+                    <p className="text-sm text-gray-900">{selectedType.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedType.is_active 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {selectedType.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Data de Criação</label>
+                    <p className="text-sm text-gray-900">
+                      {new Date(selectedType.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
                 </div>
+              </div>
+
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Serviços Associados</h4>
+                {selectedType.services && selectedType.services.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedType.services.map((service) => (
+                      <div key={service.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <Settings className="h-5 w-5 text-blue-500" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{service.name}</p>
+                          <p className="text-xs text-gray-500">{service.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Nenhum serviço associado</p>
+                )}
+
+                {selectedType.image && (
+                  <div className="mt-6">
+                    <h4 className="text-lg font-medium text-gray-900 mb-4">Imagem</h4>
+                    <img 
+                      src={selectedType.image} 
+                      alt={selectedType.name} 
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
-            {selectedType.image && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Imagem</label>
-                <div className="mt-2">
-                  <img
-                    src={selectedType.image}
-                    alt={selectedType.name}
-                    className="h-32 w-32 object-cover rounded-lg border border-gray-200"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">{selectedType.image}</p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Data de Criação</label>
-                <p className="text-sm text-gray-900">
-                  {new Date(selectedType.created_at).toLocaleDateString('pt-BR')}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Última Atualização</label>
-                <p className="text-sm text-gray-900">
-                  {new Date(selectedType.updated_at).toLocaleDateString('pt-BR')}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowViewModal(false)}
-              >
-                Fechar
-              </Button>
+            <div className="flex justify-end space-x-3 pt-6 border-t">
               <Button
                 onClick={() => {
                   setShowViewModal(false);
                   openEditModal(selectedType);
                 }}
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 Editar
+              </Button>
+              <Button onClick={() => setShowViewModal(false)} variant="outline">
+                Fechar
               </Button>
             </div>
           </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Building2, Eye, EyeOff, RefreshCw, Palette, Smartphone, Monitor } from 'lucide-react';
+import { Building2, Eye, EyeOff, RefreshCw, Palette } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiService from '../services/api';
 import Card from '../components/ui/Card';
@@ -53,9 +53,25 @@ const EnterprisePage: React.FC = () => {
     try {
       setIsLoading(true);
       const response = await apiService.getEnterprise();
-      reset(response);
+      if (response) {
+        reset(response);
+      } else {
+        // Se não há empresa cadastrada, usar valores padrão
+        reset({
+          name: '',
+          logo: '',
+          color_primary: '#007bff',
+          color_background: '#ffffff',
+          color_text: '#000000',
+          color_icon: '#007bff',
+          color_tabIconDefault: '#007bff',
+          color_tabIconSelected: '#007bff',
+          color_tint: '#007bff',
+        });
+      }
     } catch (error) {
       console.error('Erro ao carregar dados da empresa:', error);
+      toast.error('Erro ao carregar dados da empresa');
     } finally {
       setIsLoading(false);
     }
@@ -64,11 +80,16 @@ const EnterprisePage: React.FC = () => {
   const handleUpdateEnterprise = async (data: any) => {
     try {
       setIsSaving(true);
-      await apiService.updateEnterprise(data);
-      toast.success('Configurações da empresa atualizadas com sucesso!');
-    } catch (error) {
+      const response = await apiService.updateEnterprise(data);
+      toast.success(response.message || 'Configurações da empresa atualizadas com sucesso!');
+      // Atualizar os dados do formulário com a resposta do servidor
+      if (response.data) {
+        reset(response.data);
+      }
+    } catch (error: any) {
       console.error('Erro ao atualizar empresa:', error);
-      toast.error('Erro ao atualizar configurações da empresa');
+      const errorMessage = error.response?.data?.message || 'Erro ao atualizar configurações da empresa';
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }

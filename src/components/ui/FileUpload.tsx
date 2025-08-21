@@ -1,10 +1,13 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, X, FileText, Image, File, Trash2, Eye, Download, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { Upload, X, FileText, Image, File, Eye, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import type { FileUploadConfig, UploadedFile } from '../../types';
+import { MANIFEST_ATTACHMENT_CONFIG } from '../../types';
 import Button from './Button';
 import apiService from '../../services/api';
+import SectionHeader from "./SectionHeader";
+import { FileText as FileTextIcon } from "lucide-react";
 
 interface FileUploadProps {
     onFilesChange: (files: UploadedFile[]) => void;
@@ -20,25 +23,7 @@ interface FileUploadProps {
     showUploadSection?: boolean;
 }
 
-const DEFAULT_CONFIG: FileUploadConfig = {
-    maxFiles: 5,
-    maxSizePerFile: 50, // 50MB
-    allowedTypes: [
-        'application/pdf',
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'text/csv',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'application/zip'
-    ],
-    allowedExtensions: ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.xls', '.csv', '.xlsx', '.ppt', '.pptx', '.zip']
-};
+const DEFAULT_CONFIG: FileUploadConfig = MANIFEST_ATTACHMENT_CONFIG;
 
 const FileUpload: React.FC<FileUploadProps> = ({
     onFilesChange,
@@ -202,7 +187,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
     // Função para processar arquivos
     const processFiles = useCallback((fileList: FileList) => {
         const newFiles: UploadedFile[] = [];
-        const newErrors: string[] = [];
 
         // Verificar limite de arquivos
         if (files.length + fileList.length > mergedConfig.maxFiles!) {
@@ -242,8 +226,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
             newFiles.push(uploadedFile);
         });
-
-
 
         if (newFiles.length > 0) {
             const updatedFiles = [...files, ...newFiles];
@@ -354,12 +336,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
         <div className={className}>
             <div className="space-y-6">
                 {/* Título */}
-                <div className="flex items-center space-x-2">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    <h3 className="text-lg font-medium text-gray-900">
-                        Anexos do Manifesto
-                    </h3>
-                </div>
+                <SectionHeader
+                    icon={FileTextIcon}
+                    title={"Anexos"}
+                    subtitle={"Carregue os arquivos necessários"}
+                    isCompleted={files.length > 0 || existingAttachments.length > 0 || uploadedAttachments.length > 0}
+                    size="sm"
+                />
 
                 {/* Componente de upload - apenas se showUploadSection for true */}
                 {showUploadSection && (
@@ -386,7 +369,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
                                 type="file"
                                 multiple
                                 onChange={handleFileSelect}
-                                accept={mergedConfig.allowedExtensions?.join(',')}
+                                accept={mergedConfig.allowedExtensions?.map(ext => ext.replace('.', '')).join(',')}
                                 className="hidden"
                                 disabled={disabled}
                             />
@@ -415,7 +398,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
                                         {placeholder}
                                     </p>
                                     <p className="text-sm text-gray-500 mt-2">
-                                        Tipos aceitos: {mergedConfig.allowedExtensions?.join(', ')}
+                                        Tipos aceitos: {mergedConfig.allowedExtensions?.map(ext => ext.toUpperCase()).join(', ')}
                                     </p>
                                     <p className="text-sm text-gray-500">
                                         Máximo: {mergedConfig.maxFiles} arquivos de até {mergedConfig.maxSizePerFile}MB cada
@@ -664,19 +647,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
                         </div>
                     </div>
                 )}
-
-                {/* Informações sobre limites */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">
-                        Informações sobre anexos:
-                    </h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• Máximo de {mergedConfig.maxFiles} arquivos por manifesto</li>
-                        <li>• Tamanho máximo de {mergedConfig.maxSizePerFile}MB por arquivo</li>
-                        <li>• Tipos aceitos: {mergedConfig.allowedExtensions?.join(', ')}</li>
-                        <li>• Os arquivos são enviados imediatamente após a seleção</li>
-                    </ul>
-                </div>
             </div>
 
             {/* Modal de Preview */}

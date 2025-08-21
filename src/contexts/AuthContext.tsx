@@ -2,16 +2,15 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import toast from 'react-hot-toast';
 import apiService from '../services/api';
-import type { User } from '../types';
+import type { Admin, LoginResponse } from '../types';
 
 interface AuthContextType {
-  user: User | null;
+  admin: Admin | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithCpfCnpj: (cpfCnpj: string, password: string) => Promise<void>;
   logout: () => void;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  updateProfile: (data: Partial<Admin>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,20 +28,22 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [admin, setAdmin] = useState<Admin | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('auth_token');
-      if (token) {
+      const adminData = localStorage.getItem('admin');
+      
+      if (token && adminData) {
         try {
-          const userData = await apiService.getProfile();
-          setUser(userData);
+          // Tentar carregar perfil atualizado do servidor
+          const profileData = await apiService.getAdminProfile();
+          setAdmin(profileData);
         } catch (error) {
-          toast.error('Erro ao carregar perfil: ' + error);
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user');
+          // Se falhar, usar dados locais se disponíveis
+          setAdmin(JSON.parse(adminData));
         }
       }
       setIsLoading(false);
@@ -53,48 +54,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiService.login({ email, password });
+      const response = await apiService.adminLogin({ email, password });
       localStorage.setItem('auth_token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      setUser(response.user);
+      
+      if (response.admin) {
+        localStorage.setItem('admin', JSON.stringify(response.admin));
+        setAdmin(response.admin);
+      }
     } catch (error) {
       throw error;
     }
   };
 
-  const loginWithCpfCnpj = async (cpfCnpj: string, password: string) => {
+  const logout = async () => {
     try {
-      const response = await apiService.login({ cpf_cnpj: cpfCnpj, password });
-      localStorage.setItem('auth_token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      setUser(response.user);
+      // Tentar fazer logout no servidor
+      await apiService.adminLogout();
     } catch (error) {
-      throw error;
+      // Continuar com logout local mesmo se o servidor falhar
+      console.warn('Erro ao fazer logout no servidor:', error);
+    } finally {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('admin');
+      setAdmin(null);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-    setUser(null);
-  };
-
-  const updateProfile = async (data: Partial<User>) => {
+  const updateProfile = async (data: Partial<Admin>) => {
     try {
-      const updatedUser = await apiService.updateProfile(data);
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      const updatedProfile = await apiService.updateAdminProfile(data);
+      setAdmin(updatedProfile);
+      localStorage.setItem('admin', JSON.stringify(updatedProfile));
     } catch (error) {
       throw error;
     }
   };
 
   const value: AuthContextType = {
-    user,
-    isAuthenticated: !!user,
+    admin,
+    isAuthenticated: !!admin,
     isLoading,
     login,
-    loginWithCpfCnpj,
     logout,
     updateProfile,
   };

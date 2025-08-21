@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Menu, 
-  X, 
-  Home, 
-  Users, 
-  Settings, 
-  FileText, 
-  Tag, 
-  Layers, 
+import {
+  Menu,
+  X,
+  Home,
+  FileText,
+  Settings,
+  Users,
   Building2,
+  Layers,
+  Tag,
   LogOut,
   User,
-  Bell,
-  Search
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Button from './ui/Button';
@@ -26,20 +25,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { admin, logout } = useAuth();
 
-  const navigation = user?.role === 'admin' ? [
+  const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home, badge: null },
     { name: 'Manifestos', href: '/manifests', icon: FileText, badge: null },
     { name: 'Usuários', href: '/users', icon: Users, badge: null },
+    { name: 'Administradores', href: '/admins', icon: Shield, badge: null },
     { name: 'Serviços', href: '/services', icon: Settings, badge: null },
     { name: 'Categorias', href: '/categories', icon: Tag, badge: null },
     { name: 'Tipos', href: '/types', icon: Layers, badge: null },
     { name: 'Empresa', href: '/enterprise', icon: Building2, badge: null },
-  ] : [
-    { name: 'Dashboard', href: '/dashboard', icon: Home, badge: null },
-    { name: 'Manifestos', href: '/manifests', icon: FileText, badge: null },
-  ];
+  ]
 
   const handleLogout = () => {
     logout();
@@ -173,8 +170,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className="relative">
                 <div className="flex items-center space-x-3 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
                   <div className="flex flex-col text-right">
-                    <span className="text-sm font-medium text-gray-900">{user?.name}</span>
-                    <span className="text-xs text-gray-500">{user?.email}</span>
+                    <span className="text-sm font-medium text-gray-900">{admin?.name}</span>
+                    <span className="text-xs text-gray-500">{admin?.email}</span>
                   </div>
                   <div className="h-10 w-10 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl flex items-center justify-center shadow-sm">
                     <User className="h-5 w-5 text-white" />
@@ -198,7 +195,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Conteúdo da página */}
         <main className="flex-1 relative overflow-y-auto focus:outline-none bg-gray-50">
           <div className="py-8">
-            <div className="max-w-7xl mx-auto px-6 sm:px-8 md:px-10">
+            <div className="px-6">
               <div className="animate-fade-in">
                 {children}
               </div>

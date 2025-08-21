@@ -20,10 +20,9 @@ type LoginFormData = yup.InferType<typeof loginSchema>;
 const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<'email' | 'cpf'>('email');
   
   const navigate = useNavigate();
-  const { login, loginWithCpfCnpj } = useAuth();
+  const { login } = useAuth();
 
   const {
     register,
@@ -33,27 +32,12 @@ const Login: React.FC = () => {
     resolver: yupResolver(loginSchema),
   });
 
-  const isEmail = (value: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  };
-
-  const handleIdentifierChange = (value: string) => {
-    if (value && isEmail(value)) {
-      setLoginMethod('email');
-    } else if (value && value.length >= 11) {
-      setLoginMethod('cpf');
-    }
-  };
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
 
     try {
-      if (loginMethod === 'email') {
-        await login(data.identifier, data.password);
-      } else {
-        await loginWithCpfCnpj(data.identifier, data.password);
-      }
+      await login(data.identifier, data.password);
       navigate('/dashboard');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao fazer login');
@@ -79,15 +63,12 @@ const Login: React.FC = () => {
 
         <Card>
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-
             <Input
               label="Email ou CPF/CNPJ"
-              placeholder={loginMethod === 'email' ? 'seu@email.com' : '000.000.000-00'}
-              leftIcon={loginMethod === 'email' ? <Mail className="h-5 w-5" /> : <User className="h-5 w-5" />}
+              placeholder="seu@email.com"
+              leftIcon={<Mail className="h-5 w-5" />}
               error={errors.identifier?.message}
-              {...register('identifier', {
-                onChange: (e) => handleIdentifierChange(e.target.value),
-              })}
+              {...register('identifier')}
             />
 
             <Input

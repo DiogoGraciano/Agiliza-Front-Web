@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { FileText } from 'lucide-react';
+import { User, Mail, Phone, Shield } from 'lucide-react';
 import apiService from '../../services/api';
-import type { Service as ServiceType } from '../../types';
+import type { Admin } from '../../types';
 import Button from './Button';
 import Input from './Input';
 import Table from './Table';
 import Modal from './Modal';
 
-interface ServiceSelectionModalProps {
+interface AdminSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (service: ServiceType) => void;
+  onSelect: (admin: Admin) => void;
 }
 
-const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
+const AdminSelectionModal: React.FC<AdminSelectionModalProps> = ({
   isOpen,
   onClose,
   onSelect,
 }) => {
-  const [services, setServices] = useState<ServiceType[]>([]);
-  const [filteredServices, setFilteredServices] = useState<ServiceType[]>([]);
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [filteredAdmins, setFilteredAdmins] = useState<Admin[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,30 +27,31 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      fetchServices();
+      fetchAdmins();
     }
   }, [isOpen, currentPage]);
 
   useEffect(() => {
     if (searchTerm.trim()) {
-      const filtered = services.filter(service =>
-        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchTerm.toLowerCase())
+      const filtered = admins.filter(admin =>
+        admin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        admin.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        admin.cpf_cnpj.includes(searchTerm)
       );
-      setFilteredServices(filtered);
+      setFilteredAdmins(filtered);
     } else {
-      setFilteredServices(services);
+      setFilteredAdmins(admins);
     }
-  }, [searchTerm, services]);
+  }, [searchTerm, admins]);
 
-  const fetchServices = async () => {
+  const fetchAdmins = async () => {
     try {
       setIsLoading(true);
-      const response = await apiService.getServices({}, currentPage);
-      setServices(response.data);
+      const response = await apiService.getAdmins({}, currentPage);
+      setAdmins(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
-      console.error('Erro ao carregar serviços:', error);
+      console.error('Erro ao carregar administradores:', error);
     } finally {
       setIsLoading(false);
     }
@@ -60,9 +61,9 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     if (searchTerm.trim()) {
       try {
         setIsLoading(true);
-        const response = await apiService.searchServices(searchTerm);
-        setServices(response);
-        setTotalPages(1);
+        const response = await apiService.getAdmins({ search: searchTerm }, 1);
+        setAdmins(response.data);
+        setTotalPages(response.last_page);
         setCurrentPage(1);
       } catch (error) {
         console.error('Erro na busca:', error);
@@ -70,12 +71,12 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
         setIsLoading(false);
       }
     } else {
-      fetchServices();
+      fetchAdmins();
     }
   };
 
-  const handleServiceSelect = (service: ServiceType) => {
-    onSelect(service);
+  const handleAdminSelect = (admin: Admin) => {
+    onSelect(admin);
     onClose();
   };
 
@@ -87,32 +88,51 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     {
       key: 'name',
       header: 'Nome',
-      render: (service: ServiceType) => (
+      render: (admin: Admin) => (
         <div className="flex items-center space-x-3">
-          <FileText className="h-5 w-5 text-blue-500" />
+          <Shield className="h-5 w-5 text-purple-500" />
           <div>
-            <p className="text-sm font-medium text-gray-900">{service.name}</p>
-            <p className="text-xs text-gray-500">{service.description}</p>
+            <p className="text-sm font-medium text-gray-900">{admin.name}</p>
           </div>
         </div>
       )
     },
     {
-      key: 'type',
-      header: 'Tipo',
-      render: (service: ServiceType) => (
-        <span className="text-sm text-gray-900">{service.type?.name || 'N/A'}</span>
+      key: 'email',
+      header: 'Email',
+      render: (admin: Admin) => (
+        <div className="flex items-center space-x-2">
+          <Mail className="h-4 w-4 text-gray-500" />
+          <span className="text-sm text-gray-900">{admin.email}</span>
+        </div>
+      )
+    },
+    {
+      key: 'cpf_cnpj',
+      header: 'CPF/CNPJ',
+      render: (admin: Admin) => (
+        <span className="text-sm text-gray-900 font-mono">{admin.cpf_cnpj}</span>
+      )
+    },
+    {
+      key: 'phone',
+      header: 'Telefone',
+      render: (admin: Admin) => (
+        <div className="flex items-center space-x-2">
+          <Phone className="h-4 w-4 text-gray-500" />
+          <span className="text-sm text-gray-900">{admin.phone || 'Não informado'}</span>
+        </div>
       )
     },
     {
       key: 'actions',
       header: 'Ações',
-      render: (service: ServiceType) => (
+      render: (admin: Admin) => (
         <Button
-          onClick={() => handleServiceSelect(service)}
+          onClick={() => handleAdminSelect(admin)}
           variant="outline"
           size="sm"
-          className="text-blue-600 hover:text-blue-700"
+          className="text-purple-600 hover:text-purple-700"
         >
           Selecionar
         </Button>
@@ -124,15 +144,15 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Selecionar Serviço"
-      size="xl"
+      title="Selecionar Administrador"
+      size="2xl"
     >
       <div className="space-y-6">
         {/* Search */}
         <div className="flex space-x-3">
           <Input
             type="text"
-            placeholder="Buscar por nome ou descrição..."
+            placeholder="Buscar por nome, email ou CPF/CNPJ..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -142,7 +162,7 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
             Buscar
           </Button>
           {searchTerm && (
-            <Button onClick={() => { setSearchTerm(''); fetchServices(); }} variant="outline">
+            <Button onClick={() => { setSearchTerm(''); fetchAdmins(); }} variant="outline">
               Limpar
             </Button>
           )}
@@ -152,14 +172,14 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
         <div className="max-h-[60vh] overflow-y-auto">
           {isLoading ? (
             <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
             </div>
           ) : (
             <>
               <Table
-                data={filteredServices}
+                data={filteredAdmins}
                 columns={tableColumns}
-                emptyMessage="Nenhum serviço encontrado"
+                emptyMessage="Nenhum administrador encontrado"
               />
               
               {/* Paginação */}
@@ -203,4 +223,4 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
   );
 };
 
-export default ServiceSelectionModal;
+export default AdminSelectionModal;

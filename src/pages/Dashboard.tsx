@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import apiService from '../services/api';
 import Card from '../components/ui/Card';
 import type { Manifest } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
   totalUsers: number;
@@ -16,7 +17,7 @@ interface DashboardStats {
 }
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { admin } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalManifests: 0,
@@ -27,6 +28,7 @@ const Dashboard: React.FC = () => {
   });
   const [recentManifests, setRecentManifests] = useState<Manifest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -38,9 +40,9 @@ const Dashboard: React.FC = () => {
           apiService.getUsers(),
           apiService.getManifests(),
           apiService.getServices(),
-          apiService.getManifests('status=pending'),
-          apiService.getManifests('status=completed'),
-          apiService.getManifests('status=rejected'),
+          apiService.getManifests({ status: 'pending' }),
+          apiService.getManifests({ status: 'completed' }),
+          apiService.getManifests({ status: 'rejected' }),
         ]);
 
         setStats({
@@ -118,7 +120,7 @@ const Dashboard: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-teal-600 opacity-90"></div>
         <div className="relative z-10 text-white">
           <h1 className="text-3xl font-bold mb-2">
-            Bem-vindo de volta, {user?.name}! 👋
+            Bem-vindo de volta, {admin?.name}! 👋
           </h1>
           <p className="text-teal-100 text-lg">
             Aqui está um resumo do que está acontecendo no sistema hoje.
@@ -257,19 +259,19 @@ const Dashboard: React.FC = () => {
       <Card variant="gradient" hover>
         <h3 className="text-xl font-bold text-gray-900 mb-6">Ações Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="group p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl hover:shadow-lg transition-all duration-300 text-left hover:scale-105">
+          <button onClick={() => navigate('/manifests')} className="group p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl hover:shadow-lg transition-all duration-300 text-left hover:scale-105">
             <div className="flex items-center">
               <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mr-4 group-hover:scale-110 transition-transform">
                 <FileText className="h-6 w-6 text-white" />
               </div>
               <div>
                 <h4 className="font-bold text-gray-900 group-hover:text-blue-700">Novo Manifesto</h4>
-                <p className="text-sm text-gray-600">Criar um novo manifesto</p>
+                <p className="text-sm text-gray-600">Ver todos os manifestos</p>
               </div>
             </div>
           </button>
           
-          <button className="group p-6 bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl hover:shadow-lg transition-all duration-300 text-left hover:scale-105">
+          <button onClick={() => navigate('/users')} className="group p-6 bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl hover:shadow-lg transition-all duration-300 text-left hover:scale-105">
             <div className="flex items-center">
               <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl mr-4 group-hover:scale-110 transition-transform">
                 <Users className="h-6 w-6 text-white" />
@@ -281,7 +283,7 @@ const Dashboard: React.FC = () => {
             </div>
           </button>
           
-          <button className="group p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-xl hover:shadow-lg transition-all duration-300 text-left hover:scale-105">
+          <button onClick={() => navigate('/enterprise')} className="group p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-xl hover:shadow-lg transition-all duration-300 text-left hover:scale-105">
             <div className="flex items-center">
               <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl mr-4 group-hover:scale-110 transition-transform">
                 <Settings className="h-6 w-6 text-white" />

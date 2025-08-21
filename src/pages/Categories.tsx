@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Plus,
-  Search,
   Filter,
   Eye,
   Edit,
@@ -9,8 +8,6 @@ import {
   Tag,
   Calendar,
   Settings,
-  ToggleLeft,
-  ToggleRight,
   FunnelX
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -18,7 +15,7 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import apiService from '../services/api';
-import type { Category, Service } from '../types';
+import type { Category, CategoryFilters } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -26,22 +23,17 @@ import Select from '../components/ui/Select';
 import Checkbox from '../components/ui/Checkbox';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
-import ServiceSelectionModal from '../components/ui/ServiceSelectionModal';
 
 const categorySchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
-  service_id: yup.number().required('Serviço é obrigatório'),
   is_active: yup.boolean().optional().default(true),
 });
 
 const Categories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [showServiceSelectionModal, setShowServiceSelectionModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -64,34 +56,23 @@ const Categories: React.FC = () => {
     fetchCategories();
   }, [currentPage]); // Removidas dependências dos filtros para evitar loops
 
-  useEffect(() => {
-    fetchServices();
-  }, []); // Executar apenas uma vez ao montar o componente
-
   const fetchCategories = async () => {
     try {
       setIsLoading(true);
 
-      // Construir parâmetros de filtro
-      const params = new URLSearchParams();
+      // Construir filtros conforme a documentação da API
+      const filters: CategoryFilters = {};
 
       if (statusFilter !== 'all') {
-        params.append('is_active', statusFilter === 'active' ? 'true' : 'false');
+        filters.is_active = statusFilter === 'active';
       }
 
       if (searchTerm.trim()) {
-        params.append('name', searchTerm);
+        filters.name = searchTerm;
       }
-
-      if (selectedService) {
-        params.append('service_id', selectedService.id.toString());
-      }
-
-      // Adicionar página atual
-      params.append('page', currentPage.toString());
 
       // Fazer a requisição com filtros
-      const response = await apiService.getCategories(params.toString());
+      const response = await apiService.getCategories(filters, currentPage);
 
       setCategories(response.data);
       setTotalPages(response.last_page);
@@ -103,41 +84,35 @@ const Categories: React.FC = () => {
   };
 
   const applyFilters = () => {
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset para primeira página ao aplicar filtros
     fetchCategories();
   };
 
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
-    setSelectedService(null);
     setCurrentPage(1);
-  };
-
-  const fetchServices = async () => {
-    try {
-      const response = await apiService.getServices();
-      setServices(response.data);
-    } catch (error) {
-      toast.error('Erro ao carregar serviços:');
-    }
+    fetchCategories();
   };
 
   const handleCreateCategory = async (data: any) => {
     try {
-      await apiService.createCategory(data);
+      const categoryData = {
+        ...data,
+      };
+      
+      await apiService.createCategory(categoryData);
       setShowCreateModal(false);
       reset();
       fetchCategories();
       toast.success('Categoria criada com sucesso!');
     } catch (error) {
-      toast.error('Erro ao criar categoria:');
+      toast.error('Erro ao criar categoria: ' + error);
     }
   };
 
   const handleUpdateCategory = async (data: any) => {
     if (!selectedCategory) return;
-
     try {
       await apiService.updateCategory(selectedCategory.id, data);
       setShowEditModal(false);
@@ -146,40 +121,26 @@ const Categories: React.FC = () => {
       fetchCategories();
       toast.success('Categoria atualizada com sucesso!');
     } catch (error) {
-      toast.error('Erro ao atualizar categoria:');
+      toast.error('Erro ao atualizar categoria: ' + error);
     }
   };
 
-  const handleDeleteCategory = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta categoria?')) {
-      try {
-        await apiService.deleteCategory(id);
-        fetchCategories();
-        toast.success('Categoria excluída com sucesso!');
-      } catch (error) {
-        toast.error('Erro ao excluir categoria:');
-      }
-    }
-  };
-
-  const handleToggleStatus = async (category: Category) => {
+  const handleDeleteCategory = async (category: Category) => {
+    if (!confirm('Tem certeza que deseja excluir esta categoria?')) return;
     try {
-      await apiService.updateCategory(category.id, {
-        ...category,
-        is_active: !category.is_active,
-      });
+      await apiService.deleteCategory(category.id);
       fetchCategories();
-      toast.success('Status da categoria alterado com sucesso!');
+      toast.success('Categoria excluída com sucesso!');
     } catch (error) {
-      toast.error('Erro ao alterar status da categoria:');
+      toast.error('Erro ao excluir categoria: ' + error);
     }
   };
 
   const openEditModal = (category: Category) => {
     setSelectedCategory(category);
     setValue('name', category.name);
-    setValue('service_id', category.service_id);
     setValue('is_active', category.is_active);
+    // TODO: Implementar seleção de serviço na edição
     setShowEditModal(true);
   };
 
@@ -188,109 +149,100 @@ const Categories: React.FC = () => {
     setShowViewModal(true);
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
-
-  const columns = [
+  const tableColumns = [
     {
       key: 'id',
       header: 'ID',
-      className: 'w-16',
+      render: (category: Category) => <span className="font-mono text-sm">{category.id}</span>
     },
     {
       key: 'name',
       header: 'Nome',
-      render: (value: string) => (
-        <div className="flex items-center">
-          <div className="h-8 w-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
-            <Tag className="h-5 w-5 text-orange-600" />
-          </div>
-          <span className="text-sm font-medium text-gray-900">{value}</span>
+      render: (category: Category) => (
+        <div className="flex items-center space-x-3">
+          <Tag className="h-5 w-5 text-blue-500" />
+          <span className="text-sm font-medium text-gray-900">{category.name}</span>
         </div>
-      ),
-    },
-    {
-      key: 'service',
-      header: 'Serviço',
-      render: (value: Service) => (
-        <div className="flex items-center">
-          <Settings className="h-4 w-4 text-gray-400 mr-2" />
-          <span className="text-sm text-gray-900">{value?.name || 'Não definido'}</span>
-        </div>
-      ),
+      )
     },
     {
       key: 'is_active',
       header: 'Status',
-      render: (value: boolean, item: Category) => (
-        <button
-          onClick={() => handleToggleStatus(item)}
-          className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium transition-colors ${value
-              ? 'bg-green-100 text-green-800 hover:bg-green-200'
-              : 'bg-red-100 text-red-800 hover:bg-red-200'
-            }`}
-        >
-          {value ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-          <span>{value ? 'Ativo' : 'Inativo'}</span>
-        </button>
-      ),
+      render: (category: Category) => (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          category.is_active 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {category.is_active ? 'Ativa' : 'Inativa'}
+        </span>
+      )
     },
     {
       key: 'created_at',
-      header: 'Data de Criação',
-      render: (value: string) => (
-        <div className="flex items-center">
-          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+      header: 'Data',
+      render: (category: Category) => (
+        <div className="flex items-center space-x-2">
+          <Calendar className="h-4 w-4 text-gray-500" />
           <span className="text-sm text-gray-900">
-            {new Date(value).toLocaleDateString('pt-BR')}
+            {new Date(category.created_at).toLocaleDateString('pt-BR')}
           </span>
         </div>
-      ),
+      )
     },
     {
       key: 'actions',
       header: 'Ações',
-      render: (_: any, item: Category) => (
-        <div className="flex space-x-2">
+      render: (category: Category) => (
+        <div className="flex items-center space-x-2">
           <Button
+            onClick={() => openViewModal(category)}
             variant="ghost"
             size="sm"
-            onClick={() => openViewModal(item)}
+            className="text-blue-600 hover:text-blue-700"
+            title="Visualizar"
           >
             <Eye className="h-4 w-4" />
           </Button>
+          
           <Button
+            onClick={() => openEditModal(category)}
             variant="ghost"
             size="sm"
-            onClick={() => openEditModal(item)}
+            className="text-green-600 hover:text-green-700"
+            title="Editar"
           >
             <Edit className="h-4 w-4" />
           </Button>
+          
           <Button
+            onClick={() => handleDeleteCategory(category)}
             variant="ghost"
             size="sm"
-            onClick={() => handleDeleteCategory(item.id)}
+            className="text-red-600 hover:text-red-700"
+            title="Excluir"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      ),
-    },
+      )
+    }
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Categorias</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gerencie todas as categorias dos serviços
-          </p>
+          <p className="text-gray-600">Gerencie todas as categorias do sistema</p>
         </div>
-        <Button
-          onClick={() => setShowCreateModal(true)}
-          className="mt-4 sm:mt-0"
-        >
+        
+        <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Nova Categoria
         </Button>
@@ -298,160 +250,135 @@ const Categories: React.FC = () => {
 
       {/* Filtros */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Buscar
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar por nome..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            >
-              <option value="all">Todos</option>
-              <option value="active">Ativas</option>
-              <option value="inactive">Inativas</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Serviço
-            </label>
-            <div className="flex space-x-2">
-              <Input
-                placeholder="Selecione um serviço..."
-                value={selectedService ? selectedService.name : ''}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowServiceSelectionModal(true)}
-                size="sm"
-              >
-                Selecionar
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Filtros</h3>
+            <div className="flex items-center space-x-2">
+              <Button onClick={applyFilters} variant="outline" size="sm">
+                <Filter className="h-4 w-4 mr-2" />
+                Aplicar
+              </Button>
+              <Button onClick={clearFilters} variant="outline" size="sm">
+                <FunnelX className="h-4 w-4 mr-2" />
+                Limpar
               </Button>
             </div>
           </div>
-        </div>
 
-        {/* Botões de ação dos filtros */}
-        <div className="flex justify-end space-x-2 pt-4">
-          <Button
-            variant="outline"
-            onClick={clearFilters}
-          >
-            <FunnelX className="h-4 w-4 mr-2" />
-            Limpar Filtros
-          </Button>
-          <Button
-            variant="outline"
-            onClick={applyFilters}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Aplicar Filtros
-          </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {/* Busca por nome */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Buscar por nome
+              </label>
+              <Input
+                type="text"
+                placeholder="Digite para buscar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+              />
+            </div>
+
+            {/* Filtro por status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <Select
+                value={statusFilter}
+                onChange={(value) => setStatusFilter(value as string)}
+                options={[
+                  { value: 'all', label: 'Todos os Status' },
+                  { value: 'active', label: 'Ativas' },
+                  { value: 'inactive', label: 'Inativas' },
+                ]}
+              />
+            </div>
+          </div>
         </div>
       </Card>
 
-      {/* Tabela */}
+      {/* Tabela de Categorias */}
       <Card>
-        <Table
-          columns={columns}
-          data={categories}
-          isLoading={isLoading}
-          emptyMessage="Nenhuma categoria encontrada"
-        />
-      </Card>
-
-      {/* Paginação */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Página {currentPage} de {totalPages}
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Próxima
-            </Button>
-          </div>
+        <div className="p-6">
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <>
+              <Table
+                data={categories}
+                columns={tableColumns}
+                emptyMessage="Nenhuma categoria encontrada"
+              />
+              
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center space-x-2 mt-6">
+                  <Button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Anterior
+                  </Button>
+                  
+                  <span className="text-sm text-gray-700">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  
+                  <Button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
+      </Card>
 
       {/* Modal de Criação */}
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Nova Categoria"
-        size="lg"
+        title="Criar Nova Categoria"
+        size="xl"
       >
-        <form onSubmit={handleSubmit(handleCreateCategory)} className="space-y-4">
-          <Input
-            label="Nome da Categoria"
-            placeholder="Ex: Infraestrutura"
-            error={errors.name?.message}
-            {...register('name')}
-          />
+        <form onSubmit={handleSubmit(handleCreateCategory)} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nome *
+            </label>
+            <Input
+              {...register('name')}
+              placeholder="Nome da categoria"
+              error={errors.name?.message}
+            />
+          </div>
+          <div>
+            <label className="flex items-center space-x-2">
+              <Checkbox
+                {...register('is_active')}
+                checked={watch('is_active')}
+                onChange={(e) => setValue('is_active', e.target.checked)}
+              />
+              <span className="text-sm text-gray-700">Categoria ativa</span>
+            </label>
+          </div>
 
-          <Select
-            label="Serviço"
-            options={services.map(service => ({
-              value: service.id,
-              label: service.name
-            }))}
-            placeholder="Selecione um serviço"
-            error={errors.service_id?.message}
-            name="service_id"
-            onChange={(value) => setValue('service_id', Number(value))}
-            searchable
-            searchPlaceholder="Pesquisar serviços..."
-            noOptionsText="Nenhum serviço encontrado"
-            required
-          />
-
-          <Checkbox
-            id="is_active"
-            label="Categoria Ativa"
-            description="Marque para ativar esta categoria"
-            defaultChecked={true}
-            {...register('is_active')}
-          />
-
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button
               type="button"
-              variant="outline"
               onClick={() => setShowCreateModal(false)}
+              variant="outline"
             >
               Cancelar
             </Button>
@@ -467,44 +394,36 @@ const Categories: React.FC = () => {
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         title="Editar Categoria"
-        size="lg"
+        size="xl"
       >
-        <form onSubmit={handleSubmit(handleUpdateCategory)} className="space-y-4">
-          <Input
-            label="Nome da Categoria"
-            placeholder="Ex: Infraestrutura"
-            error={errors.name?.message}
-            {...register('name')}
-          />
+        <form onSubmit={handleSubmit(handleUpdateCategory)} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nome *
+            </label>
+            <Input
+              {...register('name')}
+              placeholder="Nome da categoria"
+              error={errors.name?.message}
+            />
+          </div>
 
-          <Select
-            label="Serviço"
-            options={services.map(service => ({
-              value: service.id,
-              label: service.name
-            }))}
-            error={errors.service_id?.message}
-            name="service_id"
-            value={watch('service_id')}
-            onChange={(value) => setValue('service_id', Number(value))}
-            searchable
-            searchPlaceholder="Pesquisar serviços..."
-            noOptionsText="Nenhum serviço encontrado"
-            required
-          />
+          <div>
+            <label className="flex items-center space-x-2">
+              <Checkbox
+                {...register('is_active')}
+                checked={watch('is_active')}
+                onChange={(e) => setValue('is_active', e.target.checked)}
+              />
+              <span className="text-sm text-gray-700">Categoria ativa</span>
+            </label>
+          </div>
 
-          <Checkbox
-            id="edit_is_active"
-            label="Categoria Ativa"
-            description="Marque para ativar esta categoria"
-            {...register('is_active')}
-          />
-
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button
               type="button"
-              variant="outline"
               onClick={() => setShowEditModal(false)}
+              variant="outline"
             >
               Cancelar
             </Button>
@@ -519,86 +438,80 @@ const Categories: React.FC = () => {
       <Modal
         isOpen={showViewModal}
         onClose={() => setShowViewModal(false)}
-        title="Detalhes da Categoria"
-        size="lg"
+        title="Visualizar Categoria"
+        size="xl"
       >
         {selectedCategory && (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className="h-16 w-16 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Tag className="h-8 w-8 text-orange-600" />
-              </div>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-medium text-gray-900">{selectedCategory.name}</h3>
-                <p className="text-sm text-gray-500">Categoria do serviço</p>
-                <div className="flex items-center mt-1">
-                  {selectedCategory.is_active ? (
-                    <ToggleRight className="h-4 w-4 text-green-600 mr-1" />
-                  ) : (
-                    <ToggleLeft className="h-4 w-4 text-red-600 mr-1" />
-                  )}
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${selectedCategory.is_active
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Informações da Categoria</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">ID</label>
+                    <p className="text-sm text-gray-900">{selectedCategory.id}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Nome</label>
+                    <p className="text-sm text-gray-900">{selectedCategory.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedCategory.is_active 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
                     }`}>
-                    {selectedCategory.is_active ? 'Ativo' : 'Inativo'}
-                  </span>
+                      {selectedCategory.is_active ? 'Ativa' : 'Inativa'}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Data de Criação</label>
+                    <p className="text-sm text-gray-900">
+                      {new Date(selectedCategory.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Serviço Associado</label>
-              <p className="text-sm text-gray-900 mt-1 flex items-center">
-                <Settings className="h-4 w-4 text-gray-400 mr-2" />
-                {selectedCategory.service?.name || 'Não definido'}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Data de Criação</label>
-                <p className="text-sm text-gray-900">
-                  {new Date(selectedCategory.created_at).toLocaleDateString('pt-BR')}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Última Atualização</label>
-                <p className="text-sm text-gray-900">
-                  {new Date(selectedCategory.updated_at).toLocaleDateString('pt-BR')}
-                </p>
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Serviços Associados</h4>
+                {selectedCategory.services && selectedCategory.services.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedCategory.services.map((service) => (
+                      <div key={service.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <Settings className="h-5 w-5 text-blue-500" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{service.name}</p>
+                          <p className="text-xs text-gray-500">{service.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Nenhum serviço associado</p>
+                )}
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowViewModal(false)}
-              >
-                Fechar
-              </Button>
+            <div className="flex justify-end space-x-3 pt-6 border-t">
               <Button
                 onClick={() => {
                   setShowViewModal(false);
                   openEditModal(selectedCategory);
                 }}
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 Editar
+              </Button>
+              <Button onClick={() => setShowViewModal(false)} variant="outline">
+                Fechar
               </Button>
             </div>
           </div>
         )}
       </Modal>
 
-      {/* Modal de Seleção de Serviço */}
-      <ServiceSelectionModal
-        isOpen={showServiceSelectionModal}
-        onClose={() => setShowServiceSelectionModal(false)}
-        onSelect={(service) => {
-          setSelectedService(service as Service);
-          setShowServiceSelectionModal(false);
-        }}
-      />
     </div>
   );
 };

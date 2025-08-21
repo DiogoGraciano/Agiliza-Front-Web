@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Manifests from './pages/Manifests';
 import Users from './pages/Users';
+import Admins from './pages/Admins';
 import Services from './pages/Services';
 import Categories from './pages/Categories';
 import Types from './pages/Types';
@@ -64,6 +65,14 @@ const AppContent: React.FC = () => {
           element={
             <ProtectedRoute>
               <Users />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admins" 
+          element={
+            <ProtectedRoute>
+              <Admins />
             </ProtectedRoute>
           } 
         />

@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 interface Column<T> {
   key: keyof T | string;
   header: string;
-  render?: (value: any, item: T) => React.ReactNode;
+  render?: (item: T) => React.ReactNode;
   className?: string;
 }
 
@@ -81,9 +81,6 @@ function Table<T extends { id?: number | string }>({
                 >
                   {column.render
                     ? column.render(
-                        typeof column.key === 'string'
-                          ? (item as any)[column.key]
-                          : item[column.key],
                         item
                       )
                     : typeof column.key === 'string'
