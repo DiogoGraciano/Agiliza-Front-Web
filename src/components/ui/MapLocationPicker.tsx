@@ -2,9 +2,9 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { MapPin, Navigation, X } from 'lucide-react';
 import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
 import type { MapCameraChangedEvent, MapMouseEvent } from '@vis.gl/react-google-maps';
-import Modal from './ui/Modal';
-import Button from './ui/Button';
-import Input from './ui/Input';
+import Modal from './Modal';
+import Button from './Button';
+import Input from './Input';
 import toast from 'react-hot-toast';
 
 interface LocationData {

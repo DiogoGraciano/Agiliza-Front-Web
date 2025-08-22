@@ -5,6 +5,7 @@ import Button from './Button';
 interface FilePreviewProps {
   attachments: Array<{
     id: number;
+    name: string;
     path: string;
     url?: string;
     created_at: string;
@@ -127,7 +128,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({ attachments, onClose }) => {
       {/* Lista de arquivos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {attachments.map((attachment) => {
-          const filename = attachment.path.split('/').pop() || 'arquivo';
+          const filename = attachment.name || attachment.path.split('/').pop() || 'arquivo';
           const isImage = isImageFile(attachment.path);
 
           

@@ -118,32 +118,6 @@ const EnterprisePage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Configurações da Empresa</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Personalize a aparência e identidade visual do sistema
-          </p>
-        </div>
-        <div className="flex space-x-3 mt-4 sm:mt-0">
-          <Button
-            variant="outline"
-            onClick={() => setShowPreview(!showPreview)}
-          >
-            {showPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-            {showPreview ? 'Ocultar Preview' : 'Mostrar Preview'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={resetToDefault}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Cores Padrão
-          </Button>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Formulário */}
         <div className="lg:col-span-2">
@@ -331,12 +305,30 @@ const EnterprisePage: React.FC = () => {
           </form>
         </div>
 
-        {/* Preview */}
-        {showPreview && (
-          <div className="lg:col-span-1">
+        <div className="lg:col-span-1">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex space-x-3 mt-4 sm:mt-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreview(!showPreview)}
+              >
+                {showPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                {showPreview ? 'Ocultar Preview' : 'Mostrar Preview'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={resetToDefault}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Cores Padrão
+              </Button>
+            </div>
+          </div>
+          {/* Preview */}
+          {showPreview && (
             <Card>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Preview</h3>
-              
+
               {/* Logo Preview */}
               {previewData?.logo && (
                 <div className="mb-4">
@@ -386,15 +378,15 @@ const EnterprisePage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Exemplo de Interface
                 </label>
-                <div 
+                <div
                   className="p-4 rounded-lg border"
-                  style={{ 
+                  style={{
                     backgroundColor: previewData?.color_background || '#ffffff',
                     color: previewData?.color_text || '#000000'
                   }}
                 >
                   <div className="flex items-center space-x-2 mb-2">
-                    <div 
+                    <div
                       className="w-4 h-4 rounded"
                       style={{ backgroundColor: previewData?.color_icon || '#007bff' }}
                     />
@@ -407,13 +399,13 @@ const EnterprisePage: React.FC = () => {
                     Botão Primário
                   </button>
                   <div className="mt-2 flex space-x-1">
-                    <div 
+                    <div
                       className="w-6 h-6 rounded flex items-center justify-center"
                       style={{ backgroundColor: previewData?.color_tabIconDefault || '#007bff' }}
                     >
                       <div className="w-2 h-2 bg-white rounded" />
                     </div>
-                    <div 
+                    <div
                       className="w-6 h-6 rounded flex items-center justify-center"
                       style={{ backgroundColor: previewData?.color_tabIconSelected || '#007bff' }}
                     >
@@ -423,8 +415,8 @@ const EnterprisePage: React.FC = () => {
                 </div>
               </div>
             </Card>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

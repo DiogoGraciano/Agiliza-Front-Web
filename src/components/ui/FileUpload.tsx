@@ -483,9 +483,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
                         )}
                     </>
                 )}
-
-
-
                 {/* Lista de anexos existentes do manifesto */}
                 {existingAttachments.length > 0 && (
                     <div className="space-y-3">
@@ -499,7 +496,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
                                         {getFileIcon(attachment.path, attachment.mime_type)}
                                         <div className="ml-3">
                                             <p className="text-sm font-medium text-gray-900">
-                                                {attachment.path.split('/').pop()}
+                                                {attachment.name || attachment.path.split('/').pop()}
                                             </p>
                                             <p className="text-xs text-gray-600">
                                                 Anexo existente

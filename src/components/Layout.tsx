@@ -12,7 +12,8 @@ import {
   Tag,
   LogOut,
   User,
-  Shield
+  Shield,
+  Briefcase
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Button from './ui/Button';
@@ -28,14 +29,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { admin, logout } = useAuth();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home, badge: null },
-    { name: 'Manifestos', href: '/manifests', icon: FileText, badge: null },
-    { name: 'Usuários', href: '/users', icon: Users, badge: null },
-    { name: 'Administradores', href: '/admins', icon: Shield, badge: null },
-    { name: 'Serviços', href: '/services', icon: Settings, badge: null },
-    { name: 'Categorias', href: '/categories', icon: Tag, badge: null },
-    { name: 'Tipos', href: '/types', icon: Layers, badge: null },
-    { name: 'Empresa', href: '/enterprise', icon: Building2, badge: null },
+    { name: 'Dashboard', href: '/dashboard', icon: Home, badge: null, description: 'Painel de controle' },
+    { name: 'Manifestos', href: '/manifests', icon: FileText, badge: null, description: 'Gerencie todos os manifestos do sistema' },
+    { name: 'Usuários', href: '/users', icon: Users, badge: null, description: 'Gerencie todos os usuários do sistema' },
+    { name: 'Administradores', href: '/admins', icon: Shield, badge: null, description: 'Gerencie todos os administradores do sistema' },
+    { name: 'Setores', href: '/sectors', icon: Briefcase, badge: null, description: 'Gerencie todos os setores do sistema' },
+    { name: 'Serviços', href: '/services', icon: Settings, badge: null, description: 'Gerencie todos os serviços do sistema' },
+    { name: 'Categorias', href: '/categories', icon: Tag, badge: null, description: 'Gerencie todas as categorias do sistema' },
+    { name: 'Tipos', href: '/types', icon: Layers, badge: null, description: 'Gerencie todos os tipos do sistema' },
+    { name: 'Empresa', href: '/enterprise', icon: Building2, badge: null, description: 'Gerencie a empresa do sistema' },
   ]
 
   const handleLogout = () => {
@@ -160,10 +162,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Menu className="h-6 w-6" />
           </button>
           <div className="flex-1 px-6 flex justify-between items-center">
-            <div className="flex-1 flex items-center">
+            <div className="flex-1 flex flex-col">
               <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                 {navigation.find(item => isActive(item.href))?.name || 'Dashboard'}
               </h1>
+              <p className="text-sm text-gray-500">{navigation.find(item => isActive(item.href))?.description || ''}</p>
             </div>
             <div className="ml-4 flex items-center space-x-4">
               {/* Perfil do usuário */}

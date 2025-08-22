@@ -4,14 +4,14 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Map, User as UserIcon, FileText, MapPin, Plus, X, CheckCircle, AlertCircle, Search, Building2, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
-import Button from './Button';
-import Input from './Input';
-import Textarea from './Textarea';
-import CustomSelect from './CustomSelect';
-import MapLocationPicker from '../MapLocationPicker';
-import FileUpload from './FileUpload';
-import SectionHeader from './SectionHeader';
-import AddressModeSelector from './AddressModeSelector';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+import Textarea from '../ui/Textarea';
+import CustomSelect from '../ui/CustomSelect';
+import MapLocationPicker from '../ui/MapLocationPicker';
+import FileUpload from '../ui/FileUpload';
+import SectionHeader from '../ui/SectionHeader';
+import AddressModeSelector from '../ui/AddressModeSelector';
 
 import type { Manifest, User, Admin, Service, FileUploadConfig, UploadedFile } from '../../types';
 import { MANIFEST_ATTACHMENT_CONFIG } from '../../types';
@@ -167,6 +167,19 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
 
   // Observar mudanças no CEP para buscar endereço automaticamente
   const watchedZipCode = watch('zip_code');
+
+  // Inicializar coordenadas quando o formulário é aberto para edição
+  useEffect(() => {
+    if (manifest && manifest.latitude && manifest.longitude) {
+      const latitude = manifest.latitude?.toString() || '';
+      const longitude = manifest.longitude?.toString() || '';
+      
+      setFormCoordinates({
+        latitude,
+        longitude
+      });
+    }
+  }, [manifest]);
 
   useEffect(() => {
     if (watchedZipCode && watchedZipCode.length === 9 && !isEditing) {
@@ -527,9 +540,13 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
     setValue('city', location.city || '');
     setValue('zip_code', location.zip_code || '');
     setValue('neighborhood', location.neighborhood || '');
+    
+    const latitude = location.latitude?.toString() || '';
+    const longitude = location.longitude?.toString() || '';
+    
     setFormCoordinates({
-      latitude: location.latitude.toString(),
-      longitude: location.longitude.toString()
+      latitude,
+      longitude
     });
 
     // Atualizar selects se houver estado
@@ -569,13 +586,18 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
   const handleFormSubmit = async (data: any) => {
     try {
       setIsSubmitting(true);
+      
+      // Garantir que as coordenadas sejam sempre incluídas
+      const latitude = formCoordinates.latitude || '';
+      const longitude = formCoordinates.longitude || '';
+      
       const manifestData = {
         ...data,
         status: manifest?.status || 'pending',
         neighborhood: data.neighborhood || '',
         complement: data.complement || '',
-        latitude: formCoordinates.latitude || data.latitude || '',
-        longitude: formCoordinates.longitude || data.longitude || '',
+        latitude,
+        longitude,
         files: selectedFiles, // Incluir arquivos selecionados (novos)
         existingAttachments: manifest?.attachments || [], // Incluir anexos existentes
       };
@@ -651,6 +673,52 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
             {renderSectionHeader(UserIcon, "Informações Básicas", "Selecione o admin responsável, usuário (opcional) e serviço", "basic")}
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+
+            <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Serviço *
+                </label>
+                <div className="flex space-x-3">
+                  <div className="flex-1 relative group">
+                    <Input
+                      placeholder="Selecione um serviço"
+                      readOnly
+                      className={`w-full transition-all duration-200 ${selectedService
+                        ? 'bg-green-50 border-green-300 text-green-800'
+                        : 'bg-gray-50 border-gray-300 group-hover:border-teal-300'
+                        }`}
+                      value={selectedService ? selectedService.name : ''}
+                    />
+                    {selectedService && (
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center animate-in scale-in-2">
+                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                          <CheckCircle className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onShowServiceSelection}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 text-blue-700 hover:from-blue-100 hover:to-indigo-100 hover:border-blue-400 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Selecionar
+                  </Button>
+                </div>
+                <input
+                  type="hidden"
+                  {...register('service_id', { valueAsNumber: true })}
+                  value={selectedService?.id || ''}
+                />
+                {errors.service_id && (
+                  <p className="text-sm text-red-600 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {errors.service_id.message?.toString()}
+                  </p>
+                )}
+              </div>
               {/* Admin Responsável - Obrigatório */}
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-700">
@@ -741,52 +809,6 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
                   <p className="text-sm text-red-600 flex items-center">
                     <AlertCircle className="h-4 w-4 mr-1" />
                     {errors.user_id.message?.toString()}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">
-                  Serviço
-                </label>
-                <div className="flex space-x-3">
-                  <div className="flex-1 relative group">
-                    <Input
-                      placeholder="Selecione um serviço"
-                      readOnly
-                      className={`w-full transition-all duration-200 ${selectedService
-                        ? 'bg-green-50 border-green-300 text-green-800'
-                        : 'bg-gray-50 border-gray-300 group-hover:border-teal-300'
-                        }`}
-                      value={selectedService ? selectedService.name : ''}
-                    />
-                    {selectedService && (
-                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center animate-in scale-in-2">
-                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                          <CheckCircle className="h-4 w-4 text-white" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onShowServiceSelection}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 text-blue-700 hover:from-blue-100 hover:to-indigo-100 hover:border-blue-400 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Selecionar
-                  </Button>
-                </div>
-                <input
-                  type="hidden"
-                  {...register('service_id', { valueAsNumber: true })}
-                  value={selectedService?.id || ''}
-                />
-                {errors.service_id && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.service_id.message?.toString()}
                   </p>
                 )}
               </div>
@@ -1040,6 +1062,18 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
                             Coordenadas: {formCoordinates.latitude}, {formCoordinates.longitude}
                           </p>
                         </div>
+
+                        {/* Campos ocultos para latitude e longitude */}
+                        <input
+                          type="hidden"
+                          {...register('latitude')}
+                          value={formCoordinates.latitude}
+                        />
+                        <input
+                          type="hidden"
+                          {...register('longitude')}
+                          value={formCoordinates.longitude}
+                        />
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="space-y-2">

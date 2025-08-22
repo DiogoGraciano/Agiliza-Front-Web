@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Plus,
-  Filter,
   Eye,
   Edit,
   Trash2,
-  MapPin,
   User as UserIcon,
   Calendar,
-  FunnelX,
   File,
   Settings,
   Shield
@@ -22,12 +19,14 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
-import UserSelectionModal from '../components/ui/UserSelectionModal';
-import AdminSelectionModal from '../components/ui/AdminSelectionModal';
-import ServiceSelectionModal from '../components/ui/ServiceSelectionModal';
-import ManifestForm from '../components/ui/ManifestForm';
+import UserSelectionModal from '../components/selectionModals/UserSelectionModal';
+import AdminSelectionModal from '../components/selectionModals/AdminSelectionModal';
+import ServiceSelectionModal from '../components/selectionModals/ServiceSelectionModal';
+import ManifestForm from '../components/manifests/ManifestForm';
+import ManifestView from '../components/manifests/ManifestView';
 
 import Select from '../components/ui/Select';
+import { FiltersPanel } from '../components/ui/FiltersPanel';
 
 const statusOptions = [
   { value: 'all', label: 'Todos os Status' },
@@ -38,8 +37,6 @@ const statusOptions = [
   { value: 'rejected', label: 'Rejeitados' },
   { value: 'cancelled', label: 'Cancelados' },
 ];
-
-import FilePreview from '../components/ui/FilePreview';
 
 const Manifests: React.FC = () => {
   const [manifests, setManifests] = useState<Manifest[]>([]);
@@ -149,6 +146,24 @@ const Manifests: React.FC = () => {
     fetchManifests();
   };
 
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (searchTerm.trim()) count++;
+    if (statusFilter !== 'all') count++;
+    if (selectedUser) count++;
+    if (selectedAdmin) count++;
+    if (filterService) count++;
+    if (zipCodeFilter.trim()) count++;
+    if (addressFilter.trim()) count++;
+    if (cityFilter.trim()) count++;
+    if (cpfCnpjFilter.trim()) count++;
+    if (nameFilter.trim()) count++;
+    if (phoneFilter.trim()) count++;
+    if (emailFilter.trim()) count++;
+    if (birthDateFilter.trim()) count++;
+    return count;
+  };
+
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
@@ -172,13 +187,18 @@ const Manifests: React.FC = () => {
   const handleCreateManifest = async (data: any) => {
     try {
       const { files, ...manifestData } = data;
+      
+      // Garantir que as coordenadas sejam sempre incluídas
+      const latitude = manifestData.latitude || '';
+      const longitude = manifestData.longitude || '';
+      
       const finalManifestData = {
         ...manifestData,
         status: 'pending',
         neighborhood: manifestData.neighborhood || '',
         complement: manifestData.complement || '',
-        latitude: manifestData.latitude || '',
-        longitude: manifestData.longitude || '',
+        latitude,
+        longitude,
       };
 
       if (files && files.length > 0) {
@@ -493,35 +513,24 @@ const Manifests: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Manifestos</h1>
-          <p className="text-gray-600">Gerencie todos os manifestos do sistema</p>
-        </div>
+      <div className="flex justify-end items-center">
         <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Novo Manifesto
         </Button>
       </div>
 
-      {/* Filtros */}
-      <Card>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Filtros</h3>
-            <div className="flex items-center space-x-2">
-              <Button onClick={applyFilters} variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Aplicar
-              </Button>
-              <Button onClick={clearFilters} variant="outline" size="sm">
-                <FunnelX className="h-4 w-4 mr-2" />
-                Limpar
-              </Button>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+
+      {/* Filtros */}
+      <FiltersPanel
+        title="Filtros de Busca"
+        onApply={applyFilters}
+        onClear={clearFilters}
+        activeFiltersCount={getActiveFiltersCount()}
+        defaultCollapsed={false}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {/* Busca por descrição */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -727,54 +736,58 @@ const Manifests: React.FC = () => {
               />
             </div>
           </div>
-        </div>
-      </Card>
+        </FiltersPanel>
 
       {/* Tabela de Manifestos */}
-      <Card>
-        <div className="p-6">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <>
-              <Table
-                data={manifests}
-                columns={tableColumns}
-                emptyMessage="Nenhum manifesto encontrado"
-              />
+      <div className="space-y-4">
+        <Table
+          title="Lista de Manifestos"
+          data={manifests}
+          columns={tableColumns}
+          isLoading={isLoading}
+          emptyMessage="Nenhum manifesto encontrado. Tente ajustar os filtros ou criar um novo manifesto."
+          variant="modern"
+          showRowNumbers={false}
+        />
 
-              {/* Paginação */}
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center space-x-2 mt-6">
-                  <Button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Anterior
-                  </Button>
+        {/* Paginação */}
+        {!isLoading && totalPages > 1 && (
+          <Card className="bg-gradient-to-r from-teal-50 to-blue-50">
+            <div className="p-4">
+              <div className="flex justify-center items-center space-x-4">
+                <Button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white shadow-md hover:shadow-lg"
+                >
+                  Anterior
+                </Button>
 
-                  <span className="text-sm text-gray-700">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-700">
                     Página {currentPage} de {totalPages}
                   </span>
-
-                  <Button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Próxima
-                  </Button>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                    {manifests.length} manifestos
+                  </span>
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      </Card>
+
+                <Button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white shadow-md hover:shadow-lg"
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
 
       {/* Modal de Criação */}
       <Modal
@@ -830,230 +843,12 @@ const Manifests: React.FC = () => {
         size="3xl"
       >
         {selectedManifest && (
-          <div className="space-y-8">
-            {/* Header com informações principais */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-100">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Manifesto #{selectedManifest.id}</h2>
-                    <p className="text-gray-600">Criado em {new Date(selectedManifest.created_at).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedManifest.status)}`}>
-                    {getStatusText(selectedManifest.status)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Descrição</h3>
-                <p className="text-gray-700 leading-relaxed">{selectedManifest.description}</p>
-              </div>
-            </div>
-
-            {/* Grid de informações organizadas */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Card do Admin Responsável */}
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div className="bg-purple-50 px-4 py-3 border-b border-purple-200 rounded-t-lg">
-                  <div className="flex items-center space-x-2">
-                    <Shield className="w-5 h-5 text-purple-600" />
-                    <h4 className="text-lg font-semibold text-gray-900">Admin Responsável</h4>
-                  </div>
-                </div>
-                <div className="p-4 space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Nome</label>
-                    <p className="text-sm font-medium text-gray-900">{selectedManifest.admin?.name || 'Não informado'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Email</label>
-                    <p className="text-sm font-medium text-gray-900">{selectedManifest.admin?.email || 'Não informado'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">CPF/CNPJ</label>
-                    <p className="text-sm font-medium text-gray-900">{selectedManifest.admin?.cpf_cnpj || 'Não informado'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card do Solicitante */}
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 rounded-t-lg">
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <h4 className="text-lg font-semibold text-gray-900">Solicitante</h4>
-                  </div>
-                </div>
-                <div className="p-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Nome</label>
-                      <p className="text-sm font-medium text-gray-900">{selectedManifest.name || 'Não informado'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">CPF/CNPJ</label>
-                      <p className="text-sm font-medium text-gray-900">{selectedManifest.cpf_cnpj || 'Não informado'}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Telefone</label>
-                      <p className="text-sm font-medium text-gray-900">{selectedManifest.phone || 'Não informado'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Email</label>
-                      <p className="text-sm font-medium text-gray-900">{selectedManifest.email || 'Não informado'}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Data de Nascimento</label>
-                    <p className="text-sm font-medium text-gray-900">
-                      {selectedManifest.birth_date ? new Date(selectedManifest.birth_date).toLocaleDateString('pt-BR') : 'Não informado'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card de Endereço */}
-              {selectedManifest.address && (
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 rounded-t-lg">
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <h4 className="text-lg font-semibold text-gray-900">Endereço</h4>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">CEP</label>
-                        <p className="text-sm font-medium text-gray-900">{selectedManifest.zip_code}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Endereço</label>
-                        <p className="text-sm font-medium text-gray-900">{selectedManifest.address}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Número</label>
-                        <p className="text-sm font-medium text-gray-900">{selectedManifest.number}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Complemento</label>
-                        <p className="text-sm font-medium text-gray-900">{selectedManifest.complement || 'Não informado'}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Bairro</label>
-                        <p className="text-sm font-medium text-gray-900">{selectedManifest.neighborhood || 'Não informado'}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Cidade</label>
-                        <p className="text-sm font-medium text-gray-900">{selectedManifest.city}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Estado</label>
-                      <p className="text-sm font-medium text-gray-900">{selectedManifest.state}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Anexos */}
-            {selectedManifest.attachments && selectedManifest.attachments.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div className="p-4">
-                  <FilePreview
-                    attachments={selectedManifest.attachments}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Ações */}
-            <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-                {canUpdateStatus(selectedManifest) && (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => handleStatusUpdate(selectedManifest!, 'accepted')}
-                      variant="outline"
-                      className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Aceitar
-                    </Button>
-                    <Button
-                      onClick={() => handleStatusUpdate(selectedManifest!, 'rejected')}
-                      variant="outline"
-                      className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      Rejeitar
-                    </Button>
-                    <Button
-                      onClick={() => handleStatusUpdate(selectedManifest!, 'in_progress')}
-                      variant="outline"
-                      className="text-purple-600 border-purple-600 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Em Andamento
-                    </Button>
-                    <Button
-                      onClick={() => handleStatusUpdate(selectedManifest!, 'completed')}
-                      variant="outline"
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Concluir
-                    </Button>
-                  </div>
-                )}
-
-                <Button
-                  onClick={closeViewModal}
-                  variant="outline"
-                  className="bg-white hover:bg-gray-50 transition-colors"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Fechar
-                </Button>
-              </div>
-            </div>
-          </div>
+          <ManifestView
+            manifest={selectedManifest}
+            onClose={closeViewModal}
+            onStatusUpdate={handleStatusUpdate}
+            canUpdateStatus={canUpdateStatus}
+          />
         )}
       </Modal>
 

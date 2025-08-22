@@ -120,11 +120,9 @@ class LocationService {
     } catch (error) {
       console.log('Tentando fallback para API da CGU...');
       try {
-        // Se falhar, tenta a API da CGU
         return await this.getCidadesCGU(siglaEstado);
       } catch (fallbackError) {
         console.error('Ambas as APIs falharam:', fallbackError);
-        // Retorna array vazio se ambas falharem
         return [];
       }
     }

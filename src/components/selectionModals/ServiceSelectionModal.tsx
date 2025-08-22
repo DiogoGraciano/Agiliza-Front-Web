@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import apiService from '../../services/api';
 import type { Service as ServiceType } from '../../types';
-import Button from './Button';
-import Input from './Input';
-import Table from './Table';
-import Modal from './Modal';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+import Table from '../ui/Table';
+import Modal from '../ui/Modal';
 
 interface ServiceSelectionModalProps {
   isOpen: boolean;

@@ -26,6 +26,15 @@ export interface Admin {
   phone?: string;
   created_at: string;
   updated_at: string;
+  sectors?: Sector[]; // Relacionamento com setores
+}
+
+export interface Sector {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Enterprise {
@@ -103,6 +112,7 @@ export interface Manifest {
   state?: string;
   latitude?: string;
   longitude?: string;
+  delivery_forecast_date?: string;
   created_at: string;
   updated_at: string;
   user?: User;
@@ -114,6 +124,7 @@ export interface Manifest {
 export interface ManifestAttachment {
   id: number;
   manifest_id: number;
+  name: string;
   path: string;
   mime_type?: string;
   created_at: string;
@@ -265,4 +276,42 @@ export interface ManifestWithAttachmentsResponse {
 export interface AttachmentResponse {
   message: string;
   data: ManifestAttachment;
+}
+
+// Tipos para comentários de manifestos
+export interface ManifestComment {
+  id: number;
+  manifest_id: number;
+  user_id?: number;
+  admin_id?: number;
+  comment: string;
+  attachment?: string;
+  status: 'public' | 'private';
+  created_at: string;
+  updated_at: string;
+  user?: User;
+  admin?: Admin;
+  attachment_url?: string;
+  // Campos de permissão retornados pela API
+  can_edit: boolean;
+  can_delete: boolean;
+  is_deleted: boolean;
+}
+
+export interface CreateCommentData {
+  manifest_id: number;
+  comment: string;
+  attachment?: File;
+  status?: 'public' | 'private';
+}
+
+export interface UpdateCommentData {
+  comment?: string;
+  attachment?: File;
+  status?: 'public' | 'private';
+}
+
+export interface CommentResponse {
+  message: string;
+  data: ManifestComment;
 }

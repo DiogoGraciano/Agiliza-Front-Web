@@ -12,6 +12,7 @@ import Services from './pages/Services';
 import Categories from './pages/Categories';
 import Types from './pages/Types';
 import EnterprisePage from './pages/Enterprise';
+import Sectors from './pages/Sectors';
 import './App.css';
 
 // Componente para rotas protegidas
@@ -73,6 +74,14 @@ const AppContent: React.FC = () => {
           element={
             <ProtectedRoute>
               <Admins />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/sectors" 
+          element={
+            <ProtectedRoute>
+              <Sectors />
             </ProtectedRoute>
           } 
         />

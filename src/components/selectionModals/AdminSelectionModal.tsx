@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Shield } from 'lucide-react';
 import apiService from '../../services/api';
 import type { Admin } from '../../types';
-import Button from './Button';
-import Input from './Input';
-import Table from './Table';
-import Modal from './Modal';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+import Table from '../ui/Table';
+import Modal from '../ui/Modal';
 
 interface AdminSelectionModalProps {
   isOpen: boolean;

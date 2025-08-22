@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
-  Filter, 
   Eye, 
   Edit, 
   Trash2,
@@ -10,7 +9,6 @@ import {
   MapPin,
   Calendar,
   Shield,
-  FunnelX,
   Search
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -23,6 +21,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import { FiltersPanel } from '../components/ui/FiltersPanel';
 import toast from 'react-hot-toast';
 import { useCepSearch } from '../hooks/useCepSearch';
 
@@ -118,6 +117,16 @@ const Users: React.FC = () => {
   const applyFilters = () => {
     setCurrentPage(1); // Reset para primeira página ao aplicar filtros
     fetchUsers();
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (nameFilter.trim()) count++;
+    if (emailFilter.trim()) count++;
+    if (cpfCnpjFilter.trim()) count++;
+    if (phoneFilter.trim()) count++;
+    if (birthDateFilter.trim()) count++;
+    return count;
   };
 
   const clearFilters = () => {
@@ -352,12 +361,7 @@ const Users: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Usuários</h1>
-          <p className="text-gray-600">Gerencie todos os usuários do sistema</p>
-        </div>
-        
+      <div className="flex justify-end items-center">
         <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Novo Usuário
@@ -365,139 +369,134 @@ const Users: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <Card>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Filtros</h3>
-            <div className="flex items-center space-x-2">
-              <Button onClick={applyFilters} variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Aplicar
-              </Button>
-              <Button onClick={clearFilters} variant="outline" size="sm">
-                <FunnelX className="h-4 w-4 mr-2" />
-                Limpar
-              </Button>
-            </div>
+      <FiltersPanel
+        title="Filtros de Usuários"
+        onApply={applyFilters}
+        onClear={clearFilters}
+        activeFiltersCount={getActiveFiltersCount()}
+        defaultCollapsed={false}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* Busca por nome */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar por nome
+            </label>
+            <Input
+              type="text"
+              placeholder="Digite para buscar..."
+              value={nameFilter}
+              onChange={(e) => setNameFilter(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {/* Busca por nome */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar por nome
-              </label>
-              <Input
-                type="text"
-                placeholder="Digite para buscar..."
-                value={nameFilter}
-                onChange={(e) => setNameFilter(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
-              />
-            </div>
+          {/* Busca por email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar por email
+            </label>
+            <Input
+              type="text"
+              placeholder="Digite para buscar..."
+              value={emailFilter}
+              onChange={(e) => setEmailFilter(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+            />
+          </div>
 
-            {/* Busca por email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar por email
-              </label>
-              <Input
-                type="text"
-                placeholder="Digite para buscar..."
-                value={emailFilter}
-                onChange={(e) => setEmailFilter(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
-              />
-            </div>
+          {/* Busca por CPF/CNPJ */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar por CPF/CNPJ
+            </label>
+            <Input
+              type="text"
+              placeholder="Digite para buscar..."
+              value={cpfCnpjFilter}
+              onChange={(e) => setCpfCnpjFilter(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+            />
+          </div>
 
-            {/* Busca por CPF/CNPJ */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar por CPF/CNPJ
-              </label>
-              <Input
-                type="text"
-                placeholder="Digite para buscar..."
-                value={cpfCnpjFilter}
-                onChange={(e) => setCpfCnpjFilter(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
-              />
-            </div>
+          {/* Busca por telefone */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar por telefone
+            </label>
+            <Input
+              type="text"
+              placeholder="Digite para buscar..."
+              value={phoneFilter}
+              onChange={(e) => setPhoneFilter(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+            />
+          </div>
 
-            {/* Busca por telefone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar por telefone
-              </label>
-              <Input
-                type="text"
-                placeholder="Digite para buscar..."
-                value={phoneFilter}
-                onChange={(e) => setPhoneFilter(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
-              />
-            </div>
-
-            {/* Filtro por data de nascimento */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Data de Nascimento
-              </label>
-              <Input
-                type="date"
-                value={birthDateFilter}
-                onChange={(e) => setBirthDateFilter(e.target.value)}
-              />
-            </div>
+          {/* Filtro por data de nascimento */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Data de Nascimento
+            </label>
+            <Input
+              type="date"
+              value={birthDateFilter}
+              onChange={(e) => setBirthDateFilter(e.target.value)}
+            />
           </div>
         </div>
-      </Card>
+      </FiltersPanel>
 
       {/* Tabela de Usuários */}
-      <Card>
-        <div className="p-6">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <>
-              <Table
-                data={users}
-                columns={tableColumns}
-                emptyMessage="Nenhum usuário encontrado"
-              />
-              
-              {/* Paginação */}
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center space-x-2 mt-6">
-                  <Button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Anterior
-                  </Button>
-                  
-                  <span className="text-sm text-gray-700">
+      <div className="space-y-4">
+        <Table
+          title="Lista de Usuários"
+          data={users}
+          columns={tableColumns}
+          isLoading={isLoading}
+          emptyMessage="Nenhum usuário encontrado. Tente ajustar os filtros ou criar um novo usuário."
+          variant="modern"
+          showRowNumbers={false}
+        />
+
+        {/* Paginação */}
+        {!isLoading && totalPages > 1 && (
+          <Card className="bg-gradient-to-r from-teal-50 to-blue-50">
+            <div className="p-4">
+              <div className="flex justify-center items-center space-x-4">
+                <Button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white shadow-md hover:shadow-lg"
+                >
+                  Anterior
+                </Button>
+
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-700">
                     Página {currentPage} de {totalPages}
                   </span>
-                  
-                  <Button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Próxima
-                  </Button>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                    {users.length} usuários
+                  </span>
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      </Card>
+
+                <Button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white shadow-md hover:shadow-lg"
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
 
       {/* Modal de Criação */}
               <Modal

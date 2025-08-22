@@ -20,7 +20,12 @@ import type {
   UserFilters,
   AdminFilters,
   ManifestWithAttachmentsResponse,
-  AttachmentResponse
+  AttachmentResponse,
+  ManifestComment,
+  CreateCommentData,
+  UpdateCommentData,
+  CommentResponse,
+  Sector
 } from '../types';
 
 class ApiService {
@@ -105,23 +110,28 @@ class ApiService {
     }
     
     params.append('page', page.toString());
+    params.append('include', 'sectors'); // Incluir setores relacionados
     
     const url = `/admins?${params.toString()}`;
     const response: AxiosResponse<PaginatedResponse<Admin>> = await this.api.get(url);
     return response.data;
   }
 
-  async createAdmin(data: Omit<Admin, 'id' | 'created_at' | 'updated_at'> & { password: string }): Promise<{ message: string; data: Admin }> {
+  async createAdmin(data: Omit<Admin, 'id' | 'created_at' | 'updated_at'> & { password: string; sectors?: number[] }): Promise<{ message: string; data: Admin }> {
     const response: AxiosResponse<{ message: string; data: Admin }> = await this.api.post('/admins', data);
     return response.data;
   }
 
   async getAdmin(id: number): Promise<Admin> {
-    const response: AxiosResponse<Admin> = await this.api.get(`/admins/${id}`);
+    const params = new URLSearchParams();
+    params.append('include', 'sectors'); // Incluir setores relacionados
+    
+    const url = `/admins/${id}?${params.toString()}`;
+    const response: AxiosResponse<Admin> = await this.api.get(url);
     return response.data;
   }
 
-  async updateAdmin(id: number, data: Partial<Admin> & { password?: string }): Promise<{ message: string; data: Admin }> {
+  async updateAdmin(id: number, data: Partial<Admin> & { password?: string; sectors?: number[] }): Promise<{ message: string; data: Admin }> {
     const response: AxiosResponse<{ message: string; data: Admin }> = await this.api.put(`/admins/${id}`, data);
     return response.data;
   }
@@ -472,6 +482,94 @@ class ApiService {
       onUploadProgress: onProgress
     });
 
+    return response.data;
+  }
+
+  // Comentários de manifestos
+  async getManifestComments(manifestId: number, page: number = 1): Promise<PaginatedResponse<ManifestComment>> {
+    const response: AxiosResponse<PaginatedResponse<ManifestComment>> = await this.api.get(`/manifests/${manifestId}/comments?page=${page}`);
+    return response.data;
+  }
+
+  async getComment(id: number): Promise<ManifestComment> {
+    const response: AxiosResponse<ManifestComment> = await this.api.get(`/manifest-comments/${id}`);
+    return response.data;
+  }
+
+  async createComment(data: CreateCommentData): Promise<CommentResponse> {
+    const formData = new FormData();
+    formData.append('manifest_id', data.manifest_id.toString());
+    formData.append('comment', data.comment);
+    
+    if (data.status) {
+      formData.append('status', data.status);
+    }
+    
+    if (data.attachment) {
+      formData.append('attachment', data.attachment);
+    }
+
+    const response: AxiosResponse<CommentResponse> = await this.api.post(`/manifests/${data.manifest_id}/comments`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
+
+    return response.data;
+  }
+
+  async updateComment(id: number, data: UpdateCommentData): Promise<CommentResponse> {
+    const formData = new FormData();
+    
+    if (data.comment) {
+      formData.append('comment', data.comment);
+    }
+    
+    if (data.status) {
+      formData.append('status', data.status);
+    }
+    
+    if (data.attachment) {
+      formData.append('attachment', data.attachment);
+    }
+
+    const response: AxiosResponse<CommentResponse> = await this.api.put(`/manifest-comments/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
+
+    return response.data;
+  }
+
+  async deleteComment(id: number): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await this.api.delete(`/manifest-comments/${id}`);
+    return response.data;
+  }
+
+  // Setores (Admin)
+  async getSectors(): Promise<Sector[]> {
+    const response: AxiosResponse<Sector[]> = await this.api.get('/sectors');
+    return response.data;
+  }
+
+  async createSector(data: Omit<Sector, 'id' | 'created_at' | 'updated_at'>): Promise<{ message: string; data: Sector }> {
+    const response: AxiosResponse<{ message: string; data: Sector }> = await this.api.post('/sectors', data);
+    return response.data;
+  }
+
+  async getSector(id: number): Promise<Sector> {
+    const response: AxiosResponse<Sector> = await this.api.get(`/sectors/${id}`);
+    return response.data;
+  }
+
+  async updateSector(id: number, data: Partial<Omit<Sector, 'id' | 'created_at' | 'updated_at'>>): Promise<{ message: string; data: Sector }> {
+    const response: AxiosResponse<{ message: string; data: Sector }> = await this.api.put(`/sectors/${id}`, data);
+    return response.data;
+  }
+
+  async deleteSector(id: number): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await this.api.delete(`/sectors/${id}`);
     return response.data;
   }
 }

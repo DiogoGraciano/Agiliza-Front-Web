@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Plus,
-  Filter,
   Eye,
   Edit,
   Trash2,
   Calendar,
   Image as ImageIcon,
   Layers,
-  FunnelX,
   Tag,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -24,8 +22,9 @@ import Checkbox from '../components/ui/Checkbox';
 import Textarea from '../components/ui/Textarea';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
-import TypeSelectionModal from '../components/ui/TypeSelectionModal';
-import CategorySelectionModal from '../components/ui/CategorySelectionModal';
+import { FiltersPanel } from '../components/ui/FiltersPanel';
+import TypeSelectionModal from '../components/selectionModals/TypeSelectionModal';
+import CategorySelectionModal from '../components/selectionModals/CategorySelectionModal';
 
 const serviceSchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
@@ -121,6 +120,14 @@ const Services: React.FC = () => {
     fetchServices();
   };
 
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (searchTerm.trim()) count++;
+    if (filterType) count++;
+    if (filterCategory) count++;
+    return count;
+  };
+
   const clearFilters = () => {
     setSearchTerm('');
     setFilterType(null);
@@ -130,14 +137,12 @@ const Services: React.FC = () => {
   };
 
   const handleCreateService = async (data: any) => {
-    console.log('handleCreateService chamado com dados:', data);
     try {
       const serviceData = {
         ...data,
         ...(formType?.id && { type_id: formType.id }),
         ...(formCategory?.id && { category_id: formCategory.id }),
       };
-      console.log('Dados do serviço a serem enviados:', serviceData);
       await apiService.createService(serviceData);
       setShowCreateModal(false);
       resetForm();
@@ -364,12 +369,7 @@ const Services: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Serviços</h1>
-          <p className="text-gray-600">Gerencie todos os serviços do sistema</p>
-        </div>
-
+      <div className="flex justify-end items-center">
         <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Novo Serviço
@@ -377,137 +377,132 @@ const Services: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <Card>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Filtros</h3>
-            <div className="flex items-center space-x-2">
-              <Button onClick={applyFilters} variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Aplicar
-              </Button>
-              <Button onClick={clearFilters} variant="outline" size="sm">
-                <FunnelX className="h-4 w-4 mr-2" />
-                Limpar
-              </Button>
-            </div>
+      <FiltersPanel
+        title="Filtros de Serviços"
+        onApply={applyFilters}
+        onClear={clearFilters}
+        activeFiltersCount={getActiveFiltersCount()}
+        defaultCollapsed={false}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* Busca por nome */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar por nome
+            </label>
+            <Input
+              type="text"
+              placeholder="Digite para buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {/* Busca por nome */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar por nome
-              </label>
+          {/* Filtro por tipo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo
+            </label>
+            <div className="flex space-x-2">
               <Input
                 type="text"
-                placeholder="Digite para buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+                placeholder="Selecione tipo"
+                value={filterType?.name || ''}
+                readOnly
+                className="flex-1"
               />
+              <Button
+                onClick={() => {
+                  setModalContext('filter');
+                  setShowTypeSelectionModal(true);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Layers className="h-4 w-4" />
+              </Button>
             </div>
+          </div>
 
-            {/* Filtro por tipo */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo
-              </label>
-              <div className="flex space-x-2">
-                <Input
-                  type="text"
-                  placeholder="Selecione tipo"
-                  value={filterType?.name || ''}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  onClick={() => {
-                    setModalContext('filter');
-                    setShowTypeSelectionModal(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Layers className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Filtro por categoria */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categoria
-              </label>
-              <div className="flex space-x-2">
-                <Input
-                  type="text"
-                  placeholder="Selecione categoria"
-                  value={filterCategory?.name || ''}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  onClick={() => {
-                    setModalContext('filter');
-                    setShowCategorySelectionModal(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Tag className="h-4 w-4" />
-                </Button>
-              </div>
+          {/* Filtro por categoria */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Categoria
+            </label>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="Selecione categoria"
+                value={filterCategory?.name || ''}
+                readOnly
+                className="flex-1"
+              />
+              <Button
+                onClick={() => {
+                  setModalContext('filter');
+                  setShowCategorySelectionModal(true);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Tag className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
-      </Card>
+      </FiltersPanel>
 
       {/* Tabela de Serviços */}
-      <Card>
-        <div className="p-6">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <>
-              <Table
-                data={services}
-                columns={tableColumns}
-                emptyMessage="Nenhum serviço encontrado"
-              />
+      <div className="space-y-4">
+        <Table
+          title="Lista de Serviços"
+          data={services}
+          columns={tableColumns}
+          isLoading={isLoading}
+          emptyMessage="Nenhum serviço encontrado. Tente ajustar os filtros ou criar um novo serviço."
+          variant="modern"
+          showRowNumbers={false}
+        />
 
-              {/* Paginação */}
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center space-x-2 mt-6">
-                  <Button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Anterior
-                  </Button>
+        {/* Paginação */}
+        {!isLoading && totalPages > 1 && (
+          <Card className="bg-gradient-to-r from-teal-50 to-blue-50">
+            <div className="p-4">
+              <div className="flex justify-center items-center space-x-4">
+                <Button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white shadow-md hover:shadow-lg"
+                >
+                  Anterior
+                </Button>
 
-                  <span className="text-sm text-gray-700">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-700">
                     Página {currentPage} de {totalPages}
                   </span>
-
-                  <Button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Próxima
-                  </Button>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                    {services.length} serviços
+                  </span>
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      </Card>
+
+                <Button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white shadow-md hover:shadow-lg"
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
 
       {/* Modal de Criação */}
       <Modal
@@ -517,7 +512,6 @@ const Services: React.FC = () => {
         size="xl"
       >
         <form onSubmit={(e) => {
-          console.log('Form submit event:', e);
           handleSubmit(handleCreateService)(e);
         }} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -672,7 +666,6 @@ const Services: React.FC = () => {
         size="xl"
       >
         <form onSubmit={(e) => {
-          console.log('Form edit submit event:', e);
           handleSubmit(handleUpdateService)(e);
         }} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

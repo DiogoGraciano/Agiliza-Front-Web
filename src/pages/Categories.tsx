@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Plus,
-  Filter,
   Eye,
   Edit,
   Trash2,
   Tag,
   Calendar,
-  Settings,
-  FunnelX
+  Settings
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -23,6 +21,7 @@ import Select from '../components/ui/Select';
 import Checkbox from '../components/ui/Checkbox';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import { FiltersPanel } from '../components/ui/FiltersPanel';
 
 const categorySchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
@@ -86,6 +85,13 @@ const Categories: React.FC = () => {
   const applyFilters = () => {
     setCurrentPage(1); // Reset para primeira página ao aplicar filtros
     fetchCategories();
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (searchTerm.trim()) count++;
+    if (statusFilter !== 'all') count++;
+    return count;
   };
 
   const clearFilters = () => {
@@ -236,12 +242,7 @@ const Categories: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Categorias</h1>
-          <p className="text-gray-600">Gerencie todas as categorias do sistema</p>
-        </div>
-        
+      <div className="flex justify-end items-center">
         <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Nova Categoria
@@ -249,101 +250,96 @@ const Categories: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <Card>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Filtros</h3>
-            <div className="flex items-center space-x-2">
-              <Button onClick={applyFilters} variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Aplicar
-              </Button>
-              <Button onClick={clearFilters} variant="outline" size="sm">
-                <FunnelX className="h-4 w-4 mr-2" />
-                Limpar
-              </Button>
-            </div>
+      <FiltersPanel
+        title="Filtros de Categorias"
+        onApply={applyFilters}
+        onClear={clearFilters}
+        activeFiltersCount={getActiveFiltersCount()}
+        defaultCollapsed={false}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* Busca por nome */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar por nome
+            </label>
+            <Input
+              type="text"
+              placeholder="Digite para buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
+            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {/* Busca por nome */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar por nome
-              </label>
-              <Input
-                type="text"
-                placeholder="Digite para buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
-              />
-            </div>
-
-            {/* Filtro por status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <Select
-                value={statusFilter}
-                onChange={(value) => setStatusFilter(value as string)}
-                options={[
-                  { value: 'all', label: 'Todos os Status' },
-                  { value: 'active', label: 'Ativas' },
-                  { value: 'inactive', label: 'Inativas' },
-                ]}
-              />
-            </div>
+          {/* Filtro por status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <Select
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value as string)}
+              options={[
+                { value: 'all', label: 'Todos os Status' },
+                { value: 'active', label: 'Ativas' },
+                { value: 'inactive', label: 'Inativas' },
+              ]}
+            />
           </div>
         </div>
-      </Card>
+      </FiltersPanel>
 
-      {/* Tabela de Categorias */}
-      <Card>
-        <div className="p-6">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <>
-              <Table
-                data={categories}
-                columns={tableColumns}
-                emptyMessage="Nenhuma categoria encontrada"
-              />
-              
-              {/* Paginação */}
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center space-x-2 mt-6">
-                  <Button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Anterior
-                  </Button>
-                  
-                  <span className="text-sm text-gray-700">
+            {/* Tabela de Categorias */}
+      <div className="space-y-4">
+        <Table
+          title="Lista de Categorias"
+          data={categories}
+          columns={tableColumns}
+          isLoading={isLoading}
+          emptyMessage="Nenhuma categoria encontrada. Tente ajustar os filtros ou criar uma nova categoria."
+          variant="modern"
+          showRowNumbers={false}
+        />
+
+        {/* Paginação */}
+        {!isLoading && totalPages > 1 && (
+          <Card className="bg-gradient-to-r from-teal-50 to-blue-50">
+            <div className="p-4">
+              <div className="flex justify-center items-center space-x-4">
+                <Button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white shadow-md hover:shadow-lg"
+                >
+                  Anterior
+                </Button>
+
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-700">
                     Página {currentPage} de {totalPages}
                   </span>
-                  
-                  <Button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Próxima
-                  </Button>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                    {categories.length} categorias
+                  </span>
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      </Card>
+
+                <Button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white shadow-md hover:shadow-lg"
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
 
       {/* Modal de Criação */}
       <Modal
