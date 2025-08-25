@@ -14,7 +14,8 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import apiService from '../services/api';
-import type { Service, Type, ServiceFilters, Category } from '../types';
+import type { Service, Type, ServiceFilters, Category, UploadedFile } from '../types';
+import { SERVICE_IMAGE_CONFIG } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -25,11 +26,12 @@ import Modal from '../components/ui/Modal';
 import { FiltersPanel } from '../components/ui/FiltersPanel';
 import TypeSelectionModal from '../components/selectionModals/TypeSelectionModal';
 import CategorySelectionModal from '../components/selectionModals/CategorySelectionModal';
+import FileUpload from '../components/ui/FileUpload';
+import FilePreview from '../components/ui/FilePreview';
 
 const serviceSchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
   description: yup.string().required('Descrição é obrigatória'),
-  image: yup.string().url('URL inválida').required('Imagem é obrigatória'),
   type_id: yup.number().optional(),
   category_id: yup.number().optional(),
   needs_attachment: yup.boolean().optional().default(false),
@@ -62,6 +64,8 @@ const Services: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [modalContext, setModalContext] = useState<'filter' | 'form'>('filter');
+  const [createImageFiles, setCreateImageFiles] = useState<UploadedFile[]>([]);
+  const [editImageFiles, setEditImageFiles] = useState<UploadedFile[]>([]);
 
   const {
     register,
@@ -78,6 +82,8 @@ const Services: React.FC = () => {
     reset();
     setFormType(null);
     setFormCategory(null);
+    setCreateImageFiles([]);
+    setEditImageFiles([]);
   };
 
   useEffect(() => {
@@ -138,14 +144,35 @@ const Services: React.FC = () => {
 
   const handleCreateService = async (data: any) => {
     try {
-      const serviceData = {
-        ...data,
-        ...(formType?.id && { type_id: formType.id }),
-        ...(formCategory?.id && { category_id: formCategory.id }),
-      };
-      await apiService.createService(serviceData);
+      if (createImageFiles.length === 0) {
+        toast.error('Por favor, selecione uma imagem');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('description', data.description);
+      formData.append('image', createImageFiles[0].file);
+      
+      if (formType?.id) {
+        formData.append('type_id', formType.id.toString());
+      }
+      if (formCategory?.id) {
+        formData.append('category_id', formCategory.id.toString());
+      }
+      
+      formData.append('needs_attachment', data.needs_attachment.toString());
+      formData.append('needs_email', data.needs_email.toString());
+      formData.append('needs_address', data.needs_address.toString());
+      formData.append('needs_phone', data.needs_phone.toString());
+      formData.append('needs_birth_date', data.needs_birth_date.toString());
+      formData.append('needs_cpf_cnpj', data.needs_cpf_cnpj.toString());
+
+      await apiService.createService(formData);
+      
       setShowCreateModal(false);
       resetForm();
+      setCreateImageFiles([]);
       fetchServices();
       toast.success('Serviço criado com sucesso!');
     } catch (error) {
@@ -156,15 +183,36 @@ const Services: React.FC = () => {
   const handleUpdateService = async (data: any) => {
     if (!selectedService) return;
     try {
-      const serviceData = {
-        ...data,
-        ...(formType?.id && { type_id: formType.id }),
-        ...(formCategory?.id && { category_id: formCategory.id }),
-      };
-      await apiService.updateService(selectedService.id, serviceData);
+      if (editImageFiles.length === 0) {
+        toast.error('Por favor, selecione uma imagem');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('description', data.description);
+      formData.append('image', editImageFiles[0].file);
+      
+      if (formType?.id) {
+        formData.append('type_id', formType.id.toString());
+      }
+      if (formCategory?.id) {
+        formData.append('category_id', formCategory.id.toString());
+      }
+      
+      formData.append('needs_attachment', data.needs_attachment.toString());
+      formData.append('needs_email', data.needs_email.toString());
+      formData.append('needs_address', data.needs_address.toString());
+      formData.append('needs_phone', data.needs_phone.toString());
+      formData.append('needs_birth_date', data.needs_birth_date.toString());
+      formData.append('needs_cpf_cnpj', data.needs_cpf_cnpj.toString());
+
+      await apiService.updateService(selectedService.id, formData);
+      
       setShowEditModal(false);
       resetForm();
       setSelectedService(null);
+      setEditImageFiles([]);
       fetchServices();
       toast.success('Serviço atualizado com sucesso!');
     } catch (error) {
@@ -187,7 +235,6 @@ const Services: React.FC = () => {
     setSelectedService(service);
     setValue('name', service.name);
     setValue('description', service.description);
-    setValue('image', service.image || '');
     setValue('type_id', service.type_id || 0);
     setValue('category_id', service.category_id || 0);
     setValue('needs_attachment', service.needs_attachment || false);
@@ -203,6 +250,8 @@ const Services: React.FC = () => {
     if (service.category) {
       setFormCategory(service.category);
     }
+    // Resetar arquivos de imagem
+    setEditImageFiles([]);
 
     setShowEditModal(true);
   };
@@ -590,13 +639,14 @@ const Services: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Imagem (URL)
-            </label>
-            <Input
-              {...register('image')}
-              placeholder="https://example.com/image.jpg"
-              error={errors.image?.message}
+            <FileUpload
+              onFilesChange={setCreateImageFiles}
+              config={SERVICE_IMAGE_CONFIG}
+              placeholder="Arraste uma imagem aqui ou clique para selecionar"
+              showUploadSection={true}
+              disabled={false}
+              title="Imagem *"
+              subtitle="Carregue uma imagem para o serviço"
             />
           </div>
 
@@ -744,14 +794,28 @@ const Services: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Imagem (URL)
-            </label>
-            <Input
-              {...register('image')}
-              placeholder="https://example.com/image.jpg"
-              error={errors.image?.message}
+            <FileUpload
+              onFilesChange={setEditImageFiles}
+              config={SERVICE_IMAGE_CONFIG}
+              placeholder="Arraste uma nova imagem aqui ou clique para selecionar"
+              showUploadSection={true}
+              disabled={false}
+              title="Imagem *"
+              subtitle="Carregue uma nova imagem para o serviço"
             />
+            {editImageFiles.length === 0 && (
+              <p className="text-sm text-red-600 mt-1">Imagem é obrigatória</p>
+            )}
+            {selectedService?.image && (
+              <div className="mt-3">
+                <p className="text-sm text-gray-600 mb-2">Imagem atual:</p>
+                <img 
+                  src={selectedService.image} 
+                  alt={selectedService.name} 
+                  className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -882,10 +946,14 @@ const Services: React.FC = () => {
                 {selectedService.image && (
                   <div className="mt-6">
                     <h4 className="text-lg font-medium text-gray-900 mb-4">Imagem</h4>
-                    <img
-                      src={selectedService.image}
-                      alt={selectedService.name}
-                      className="w-full h-48 object-cover rounded-lg"
+                    <FilePreview
+                      attachments={[{
+                        id: 0,
+                        name: selectedService.name,
+                        path: selectedService.image,
+                        url: selectedService.image,
+                        created_at: selectedService.created_at
+                      }]}
                     />
                   </div>
                 )}

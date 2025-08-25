@@ -598,13 +598,12 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
         complement: data.complement || '',
         latitude,
         longitude,
-        files: selectedFiles, // Incluir arquivos selecionados (novos)
-        existingAttachments: manifest?.attachments || [], // Incluir anexos existentes
+        files: selectedFiles, 
+        existingAttachments: manifest?.attachments || [],
       };
 
       await onSubmit(manifestData);
-
-      // Limpar formulário após sucesso
+      
       if (!isEditing) {
         reset();
         setSelectedFiles([]);

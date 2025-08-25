@@ -139,7 +139,7 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
-      month: '2-digit',
+      month: 'long',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'

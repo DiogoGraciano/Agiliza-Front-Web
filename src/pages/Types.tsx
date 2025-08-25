@@ -5,15 +5,15 @@ import {
   Edit, 
   Trash2,
   Layers,
-  Calendar,
-  Settings
+  Calendar
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import apiService from '../services/api';
-import type { Type, TypeFilters } from '../types';
+import type { Type, TypeFilters, UploadedFile } from '../types';
+import { TYPE_IMAGE_CONFIG } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -22,10 +22,11 @@ import Modal from '../components/ui/Modal';
 import { FiltersPanel } from '../components/ui/FiltersPanel';
 import Select from '../components/ui/Select';
 import Checkbox from '../components/ui/Checkbox';
+import FileUpload from '../components/ui/FileUpload';
+import FilePreview from '../components/ui/FilePreview';
 
 const typeSchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
-  image: yup.string().url('URL inválida').optional(),
   is_active: yup.boolean().optional().default(true),
 });
 
@@ -40,6 +41,8 @@ const Types: React.FC = () => {
   const [selectedType, setSelectedType] = useState<Type | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [createImageFiles, setCreateImageFiles] = useState<UploadedFile[]>([]);
+  const [editImageFiles, setEditImageFiles] = useState<UploadedFile[]>([]);
 
   const {
     register,
@@ -104,9 +107,21 @@ const Types: React.FC = () => {
 
   const handleCreateType = async (data: any) => {
     try {
-      await apiService.createType(data);
+      if (createImageFiles.length === 0) {
+        toast.error('Por favor, selecione uma imagem');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('is_active', data.is_active.toString());
+      formData.append('image', createImageFiles[0].file);
+
+      await apiService.createType(formData);
+      
       setShowCreateModal(false);
       reset();
+      setCreateImageFiles([]);
       fetchTypes();
       toast.success('Tipo criado com sucesso!');
     } catch (error) {
@@ -117,10 +132,22 @@ const Types: React.FC = () => {
   const handleUpdateType = async (data: any) => {
     if (!selectedType) return;
     try {
-      await apiService.updateType(selectedType.id, data);
+      if (editImageFiles.length === 0) {
+        toast.error('Por favor, selecione uma imagem');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('is_active', data.is_active.toString());
+      formData.append('image', editImageFiles[0].file);
+
+      await apiService.updateType(selectedType.id, formData);
+      
       setShowEditModal(false);
       reset();
       setSelectedType(null);
+      setEditImageFiles([]);
       fetchTypes();
       toast.success('Tipo atualizado com sucesso!');
     } catch (error) {
@@ -142,8 +169,8 @@ const Types: React.FC = () => {
   const openEditModal = (type: Type) => {
     setSelectedType(type);
     setValue('name', type.name);
-    setValue('image', type.image || '');
     setValue('is_active', type.is_active);
+    setEditImageFiles([]);
     setShowEditModal(true);
   };
 
@@ -362,13 +389,14 @@ const Types: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Imagem (URL)
-            </label>
-            <Input
-              {...register('image')}
-              placeholder="https://example.com/icon.png"
-              error={errors.image?.message}
+            <FileUpload
+              onFilesChange={setCreateImageFiles}
+              config={TYPE_IMAGE_CONFIG}
+              placeholder="Arraste uma imagem aqui ou clique para selecionar"
+              showUploadSection={true}
+              disabled={false}
+              title="Imagem"
+              subtitle="Carregue uma imagem para o tipo"
             />
           </div>
 
@@ -415,14 +443,25 @@ const Types: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Imagem (URL)
-            </label>
-            <Input
-              {...register('image')}
-              placeholder="https://example.com/icon.png"
-              error={errors.image?.message}
+            <FileUpload
+              onFilesChange={setEditImageFiles}
+              config={TYPE_IMAGE_CONFIG}
+              placeholder="Arraste uma nova imagem aqui ou clique para selecionar"
+              showUploadSection={true}
+              disabled={false}
+              title="Imagem"
+              subtitle="Carregue uma nova imagem para o tipo"
             />
+            {selectedType?.image && (
+              <div className="mt-3">
+                <p className="text-sm text-gray-600 mb-2">Imagem atual:</p>
+                <img 
+                  src={selectedType.image} 
+                  alt={selectedType.name} 
+                  className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -491,32 +530,16 @@ const Types: React.FC = () => {
               </div>
 
               <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Serviços Associados</h4>
-                {selectedType.services && selectedType.services.length > 0 ? (
-                  <div className="space-y-2">
-                    {selectedType.services.map((service) => (
-                      <div key={service.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                        <Settings className="h-5 w-5 text-blue-500" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{service.name}</p>
-                          <p className="text-xs text-gray-500">{service.description}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">Nenhum serviço associado</p>
-                )}
-
                 {selectedType.image && (
-                  <div className="mt-6">
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Imagem</h4>
-                    <img 
-                      src={selectedType.image} 
-                      alt={selectedType.name} 
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                  </div>
+                  <FilePreview
+                    attachments={[{
+                      id: 0,
+                      name: selectedType.name,
+                      path: selectedType.image,
+                      url: selectedType.image,
+                      created_at: selectedType.created_at
+                    }]}
+                  />
                 )}
               </div>
             </div>

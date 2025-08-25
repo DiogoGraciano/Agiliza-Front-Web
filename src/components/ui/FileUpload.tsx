@@ -21,6 +21,8 @@ interface FileUploadProps {
     onUploadError?: (error: string) => void;
     onAttachmentDelete?: (attachmentId: number) => void;
     showUploadSection?: boolean;
+    title?: string;
+    subtitle?: string;
 }
 
 const DEFAULT_CONFIG: FileUploadConfig = MANIFEST_ATTACHMENT_CONFIG;
@@ -36,7 +38,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
     onUploadComplete,
     onUploadError,
     onAttachmentDelete,
-    showUploadSection = true
+    showUploadSection = true,
+    title = "Anexos",
+    subtitle = "Carregue os arquivos necessários"
 }) => {
     const [files, setFiles] = useState<UploadedFile[]>([]);
     const [dragActive, setDragActive] = useState(false);
@@ -338,8 +342,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 {/* Título */}
                 <SectionHeader
                     icon={FileTextIcon}
-                    title={"Anexos"}
-                    subtitle={"Carregue os arquivos necessários"}
+                    title={title}
+                    subtitle={subtitle}
                     isCompleted={files.length > 0 || existingAttachments.length > 0 || uploadedAttachments.length > 0}
                     size="sm"
                 />

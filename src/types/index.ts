@@ -76,10 +76,12 @@ export interface Service {
 export interface Category {
   id: number;
   name: string;
+  type_id: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   services?: Service[];
+  type?: Type;
 }
 
 export interface Type {
@@ -203,6 +205,34 @@ export const MANIFEST_ATTACHMENT_CONFIG: FileUploadConfig = {
   allowedExtensions: ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.xls', '.csv', '.xlsx', '.ppt', '.pptx', '.zip']
 }
 
+// Configuração para upload de imagens de tipos
+export const TYPE_IMAGE_CONFIG: FileUploadConfig = {
+  maxFiles: 1,
+  maxSizePerFile: 5, // 5MB
+  allowedTypes: [
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'image/gif',
+    'image/webp'
+  ],
+  allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+}
+
+// Configuração para upload de imagens de serviços
+export const SERVICE_IMAGE_CONFIG: FileUploadConfig = {
+  maxFiles: 1,
+  maxSizePerFile: 5, // 5MB
+  allowedTypes: [
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'image/gif',
+    'image/webp'
+  ],
+  allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+}
+
 export interface UploadedFile {
   file: File;
   id: string;
@@ -238,6 +268,7 @@ export interface ServiceFilters {
 export interface CategoryFilters {
   name?: string;
   service_id?: number;
+  type_id?: number;
   is_active?: boolean;
 }
 

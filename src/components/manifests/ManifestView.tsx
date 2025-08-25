@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Calendar, Shield, MapPin } from 'lucide-react';
+import { Calendar, Shield, MapPin, UserCheck, Edit3 } from 'lucide-react';
 import type { Manifest } from '../../types';
 import Button from '../ui/Button';
 import FilePreview from '../ui/FilePreview';
 import ManifestComments from './ManifestComments';
 import LocationMap from '../ui/LocationMap';
+import DeliveryDateModal from './DeliveryDateModal';
+import { useAuth } from '../../contexts/AuthContext';
+import apiService from '../../services/api';
+import toast from 'react-hot-toast';
 
 interface ManifestViewProps {
   manifest: Manifest;
@@ -14,12 +18,17 @@ interface ManifestViewProps {
 }
 
 const ManifestView: React.FC<ManifestViewProps> = ({
-  manifest,
+  manifest: initialManifest,
   onClose,
   onStatusUpdate,
   canUpdateStatus
 }) => {
   const [isLocationMapOpen, setIsLocationMapOpen] = useState(false);
+  const [isSettingAdmin, setIsSettingAdmin] = useState(false);
+  const [isDeliveryDateModalOpen, setIsDeliveryDateModalOpen] = useState(false);
+  const [manifest, setManifest] = useState<Manifest>(initialManifest);
+  const [status, setStatus] = useState<string>(initialManifest.status);
+  const { admin: currentAdmin } = useAuth();
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -58,6 +67,38 @@ const ManifestView: React.FC<ManifestViewProps> = ({
     }
   };
 
+  const updateStatus = (manifest: Manifest, newStatus: string) => {
+    setStatus(newStatus);
+    onStatusUpdate(manifest, newStatus);
+  };
+
+  const handleSetAdmin = async () => {
+    if (!currentAdmin) {
+      toast.error('Você precisa estar logado para assumir um manifesto');
+      return;
+    }
+
+    setIsSettingAdmin(true);
+    try {
+      const response = await apiService.setManifestAdmin(manifest.id);
+      setManifest(response.data);
+      toast.success('Manifesto assumido com sucesso!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao assumir manifesto');
+    } finally {
+      setIsSettingAdmin(false);
+    }
+  };
+
+  const canAssumeManifest = () => {
+    return !manifest.admin || manifest.admin.id !== currentAdmin?.id;
+  };
+
+  const handleDeliveryDateUpdate = (updatedManifest: Manifest) => {
+    setManifest(updatedManifest);
+    setStatus(updatedManifest.status);
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Coluna principal - 70% da tela */}
@@ -83,8 +124,8 @@ const ManifestView: React.FC<ManifestViewProps> = ({
               </div>
             </div>
             <div className="text-right">
-              <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(manifest.status)}`}>
-                {getStatusText(manifest.status)}
+              <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(status)}`}>
+                {getStatusText(status)}
               </span>
             </div>
           </div>
@@ -94,21 +135,40 @@ const ManifestView: React.FC<ManifestViewProps> = ({
             <p className="text-gray-700 leading-relaxed mb-4">{manifest.description}</p>
             
             {/* Data de Entrega Esperada */}
-            {manifest.delivery_forecast_date && (
-              <div className="pt-4 border-t border-gray-200">
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium text-gray-700">Data de Entrega Esperada:</span>
-                  <span className="text-sm text-blue-600 font-semibold">
-                    {new Date(manifest.delivery_forecast_date).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </span>
+                  {manifest.delivery_forecast_date ? (
+                    <span className="text-sm text-blue-600 font-semibold">
+                      {new Date(manifest.delivery_forecast_date).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-500 italic">Não definida</span>
+                  )}
                 </div>
+                
+                {/* Botão para alterar data de entrega - apenas para admins */}
+                {currentAdmin && (
+                  <Button
+                    onClick={() => setIsDeliveryDateModalOpen(true)}
+                    variant="outline"
+                    size="xs"
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                  >
+                    <Edit3 className="w-4 h-4 mr-1" />
+                    Alterar Data
+                  </Button>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -152,29 +212,33 @@ const ManifestView: React.FC<ManifestViewProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Nome</label>
-                  <p className="text-sm font-medium text-gray-900">{manifest.name || 'Não informado'}</p>
+                  <p className="text-sm font-medium text-gray-900 break-all">{manifest.name || 'Não informado'}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">CPF/CNPJ</label>
-                  <p className="text-sm font-medium text-gray-900">{manifest.cpf_cnpj || 'Não informado'}</p>
+                  <p className="text-sm font-medium text-gray-900 break-all">{manifest.cpf_cnpj || 'Não informado'}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Telefone</label>
-                  <p className="text-sm font-medium text-gray-900">{manifest.phone || 'Não informado'}</p>
+                  <p className="text-sm font-medium text-gray-900 break-all">{manifest.phone || 'Não informado'}</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Email</label>
                   <p className="text-sm font-medium text-gray-900 break-all">{manifest.email || 'Não informado'}</p>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Data de Nascimento</label>
-                <p className="text-sm font-medium text-gray-900">
-                  {manifest.birth_date ? new Date(manifest.birth_date).toLocaleDateString('pt-BR') : 'Não informado'}
-                </p>
-              </div>
+                              <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Data de Nascimento</label>
+                  <p className="text-sm font-medium text-gray-900">
+                    {manifest.birth_date ? new Date(manifest.birth_date).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric'
+                    }) : 'Não informado'}
+                  </p>
+                </div>
             </div>
           </div>
 
@@ -265,50 +329,66 @@ const ManifestView: React.FC<ManifestViewProps> = ({
         {/* Ações */}
         <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-            {canUpdateStatus(manifest) && (
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
+              {/* Botão para assumir manifesto */}
+              {currentAdmin && canAssumeManifest() && (
                 <Button
-                  onClick={() => onStatusUpdate(manifest, 'accepted')}
+                  onClick={handleSetAdmin}
+                  disabled={isSettingAdmin}
                   variant="outline"
-                  className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
+                  className="text-indigo-600 border-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Aceitar
+                  <UserCheck className="w-4 h-4 mr-2" />
+                  {isSettingAdmin ? 'Assumindo...' : 'Assumir Manifesto'}
                 </Button>
-                <Button
-                  onClick={() => onStatusUpdate(manifest, 'rejected')}
-                  variant="outline"
-                  className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Rejeitar
-                </Button>
-                <Button
-                  onClick={() => onStatusUpdate(manifest, 'in_progress')}
-                  variant="outline"
-                  className="text-purple-600 border-purple-600 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  Em Andamento
-                </Button>
-                <Button
-                  onClick={() => onStatusUpdate(manifest, 'completed')}
-                  variant="outline"
-                  className="text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Concluir
-                </Button>
-              </div>
-            )}
+              )}
+
+              {/* Botões de status */}
+              {canUpdateStatus(manifest) && (
+                <>
+                  <Button
+                    onClick={() => updateStatus(manifest, 'accepted')}
+                    variant="outline"
+                    className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Aceitar
+                  </Button>
+                  <Button
+                    onClick={() => updateStatus(manifest, 'rejected')}
+                    variant="outline"
+                    className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Rejeitar
+                  </Button>
+                  <Button
+                    onClick={() => updateStatus(manifest, 'in_progress')}
+                    variant="outline"
+                    className="text-purple-600 border-purple-600 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Em Andamento
+                  </Button>
+                  <Button
+                    onClick={() => updateStatus(manifest, 'completed')}
+                    variant="outline"
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Concluir
+                  </Button>
+                </>
+              )}
+            </div>
 
             <Button
               onClick={onClose}
@@ -342,6 +422,15 @@ const ManifestView: React.FC<ManifestViewProps> = ({
         address={manifest.address}
         city={manifest.city}
         state={manifest.state}
+      />
+
+      {/* Modal para alterar data de entrega */}
+      <DeliveryDateModal
+        isOpen={isDeliveryDateModalOpen}
+        onClose={() => setIsDeliveryDateModalOpen(false)}
+        manifestId={manifest.id}
+        currentDate={manifest.delivery_forecast_date}
+        onDateUpdated={handleDeliveryDateUpdate}
       />
     </div>
   );

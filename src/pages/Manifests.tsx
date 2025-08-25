@@ -306,8 +306,9 @@ const Manifests: React.FC = () => {
 
   const handleStatusUpdate = async (manifest: Manifest, newStatus: string) => {
     try {
-      await apiService.updateManifestStatus(manifest.id, newStatus);
+      const updatedManifest = await apiService.updateManifestStatus(manifest.id, newStatus);
       fetchManifests();
+      setSelectedManifest(updatedManifest.data);
       toast.success('Status do manifesto atualizado com sucesso!');
     } catch (error) {
       toast.error('Erro ao atualizar status do manifesto.');
@@ -349,6 +350,7 @@ const Manifests: React.FC = () => {
   const closeViewModal = () => {
     setShowViewModal(false);
     setSelectedManifest(null);
+    fetchManifests();
   };
 
   const handlePageChange = (page: number) => {

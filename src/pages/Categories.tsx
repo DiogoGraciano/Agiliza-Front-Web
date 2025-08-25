@@ -6,14 +6,15 @@ import {
   Trash2,
   Tag,
   Calendar,
-  Settings
+  Settings,
+  Layers
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import apiService from '../services/api';
-import type { Category, CategoryFilters } from '../types';
+import type { Category, CategoryFilters, Type } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -22,6 +23,7 @@ import Checkbox from '../components/ui/Checkbox';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import { FiltersPanel } from '../components/ui/FiltersPanel';
+import TypeSelectionModal from '../components/selectionModals/TypeSelectionModal';
 
 const categorySchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
@@ -39,7 +41,11 @@ const Categories: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
+  const [showTypeSelectionModal, setShowTypeSelectionModal] = useState(false);
+  const [filterType, setFilterType] = useState<Type | null>(null);
+  const [formType, setFormType] = useState<Type | null>(null);
+  const [typeSelectionContext, setTypeSelectionContext] = useState<'filter' | 'form'>('filter');
+  const [shouldApplyFilters, setShouldApplyFilters] = useState(true);
   const {
     register,
     handleSubmit,
@@ -52,8 +58,12 @@ const Categories: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchCategories();
-  }, [currentPage]); // Removidas dependências dos filtros para evitar loops
+    if (shouldApplyFilters) {
+      fetchCategories();
+    } else {
+      fetchCategoriesWithoutFilters();
+    }
+  }, [currentPage, shouldApplyFilters]);
 
   const fetchCategories = async () => {
     try {
@@ -70,7 +80,10 @@ const Categories: React.FC = () => {
         filters.name = searchTerm;
       }
 
-      // Fazer a requisição com filtros
+      if (filterType) {
+        filters.type_id = filterType.id;
+      }
+
       const response = await apiService.getCategories(filters, currentPage);
 
       setCategories(response.data);
@@ -82,8 +95,22 @@ const Categories: React.FC = () => {
     }
   };
 
+  const fetchCategoriesWithoutFilters = async () => {
+    try {
+      setIsLoading(true);
+      const response = await apiService.getCategories({}, currentPage);
+      setCategories(response.data);
+      setTotalPages(response.last_page);
+    } catch (error) {
+      toast.error('Erro ao carregar categorias:');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const applyFilters = () => {
     setCurrentPage(1); // Reset para primeira página ao aplicar filtros
+    setShouldApplyFilters(true);
     fetchCategories();
   };
 
@@ -91,25 +118,35 @@ const Categories: React.FC = () => {
     let count = 0;
     if (searchTerm.trim()) count++;
     if (statusFilter !== 'all') count++;
+    if (filterType) count++;
     return count;
   };
 
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
+    setFilterType(null);
     setCurrentPage(1);
-    fetchCategories();
+    setShouldApplyFilters(false);
+    fetchCategoriesWithoutFilters();
   };
 
   const handleCreateCategory = async (data: any) => {
     try {
+      if (!formType) {
+        toast.error('Selecione um tipo');
+        return;
+      }
+
       const categoryData = {
         ...data,
+        type_id: formType.id,
       };
       
       await apiService.createCategory(categoryData);
       setShowCreateModal(false);
       reset();
+      setFormType(null);
       fetchCategories();
       toast.success('Categoria criada com sucesso!');
     } catch (error) {
@@ -120,10 +157,21 @@ const Categories: React.FC = () => {
   const handleUpdateCategory = async (data: any) => {
     if (!selectedCategory) return;
     try {
-      await apiService.updateCategory(selectedCategory.id, data);
+      if (!formType) {
+        toast.error('Selecione um tipo');
+        return;
+      }
+
+      const categoryData = {
+        ...data,
+        type_id: formType.id,
+      };
+
+      await apiService.updateCategory(selectedCategory.id, categoryData);
       setShowEditModal(false);
       reset();
       setSelectedCategory(null);
+      setFormType(null);
       fetchCategories();
       toast.success('Categoria atualizada com sucesso!');
     } catch (error) {
@@ -142,11 +190,20 @@ const Categories: React.FC = () => {
     }
   };
 
+  const handleTypeSelect = (type: Type) => {
+    if (typeSelectionContext === 'filter') {
+      setFilterType(type);
+    } else {
+      setFormType(type);
+    }
+    setShowTypeSelectionModal(false);
+  };
+
   const openEditModal = (category: Category) => {
     setSelectedCategory(category);
     setValue('name', category.name);
     setValue('is_active', category.is_active);
-    // TODO: Implementar seleção de serviço na edição
+    setFormType(category.type || null);
     setShowEditModal(true);
   };
 
@@ -172,6 +229,16 @@ const Categories: React.FC = () => {
         <div className="flex items-center space-x-3">
           <Tag className="h-5 w-5 text-blue-500" />
           <span className="text-sm font-medium text-gray-900">{category.name}</span>
+        </div>
+      )
+    },
+    {
+      key: 'type',
+      header: 'Tipo',
+      render: (category: Category) => (
+        <div className="flex items-center space-x-3">
+          <Layers className="h-5 w-5 text-green-500" />
+          <span className="text-sm font-medium text-gray-900">{category.type?.name || 'N/A'}</span>
         </div>
       )
     },
@@ -243,7 +310,10 @@ const Categories: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-end items-center">
-        <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={() => {
+          setFormType(null);
+          setShowCreateModal(true);
+        }} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Nova Categoria
         </Button>
@@ -286,6 +356,46 @@ const Categories: React.FC = () => {
                 { value: 'inactive', label: 'Inativas' },
               ]}
             />
+          </div>
+
+          {/* Filtro por categoria */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo
+            </label>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="Selecione tipo"
+                value={filterType?.name}
+                readOnly
+                className="flex-1"
+              />
+              <Button
+                onClick={() => {
+                  setTypeSelectionContext('filter');
+                  setShowTypeSelectionModal(true);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Layers className="h-4 w-4" />
+              </Button>
+              {filterType && (
+                <Button
+                  onClick={() => {
+                    setFilterType(null);
+                    setShouldApplyFilters(false);
+                    fetchCategoriesWithoutFilters();
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </FiltersPanel>
@@ -359,6 +469,44 @@ const Categories: React.FC = () => {
               error={errors.name?.message}
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo *
+            </label>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="Selecione um tipo"
+                value={formType?.name || ''}
+                readOnly
+                className="flex-1"
+              />
+              <Button
+                onClick={() => {
+                  setTypeSelectionContext('form');
+                  setShowTypeSelectionModal(true);
+                }}
+                variant="outline"
+                size="sm"
+                type="button"
+              >
+                <Layers className="h-4 w-4" />
+              </Button>
+              {formType && (
+                <Button
+                  onClick={() => setFormType(null)}
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="flex items-center space-x-2">
               <Checkbox
@@ -373,7 +521,10 @@ const Categories: React.FC = () => {
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button
               type="button"
-              onClick={() => setShowCreateModal(false)}
+              onClick={() => {
+                setShowCreateModal(false);
+                setFormType(null);
+              }}
               variant="outline"
             >
               Cancelar
@@ -405,6 +556,44 @@ const Categories: React.FC = () => {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo *
+            </label>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="Selecione um tipo"
+                value={formType?.name || ''}
+                readOnly
+                className="flex-1"
+                error={!formType ? 'Tipo é obrigatório' : undefined}
+              />
+              <Button
+                onClick={() => {
+                  setTypeSelectionContext('form');
+                  setShowTypeSelectionModal(true);
+                }}
+                variant="outline"
+                size="sm"
+                type="button"
+              >
+                <Layers className="h-4 w-4" />
+              </Button>
+              {formType && (
+                <Button
+                  onClick={() => setFormType(null)}
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div>
             <label className="flex items-center space-x-2">
               <Checkbox
                 {...register('is_active')}
@@ -418,7 +607,10 @@ const Categories: React.FC = () => {
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button
               type="button"
-              onClick={() => setShowEditModal(false)}
+              onClick={() => {
+                setShowEditModal(false);
+                setFormType(null);
+              }}
               variant="outline"
             >
               Cancelar
@@ -450,6 +642,10 @@ const Categories: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Nome</label>
                     <p className="text-sm text-gray-900">{selectedCategory.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Tipo</label>
+                    <p className="text-sm text-gray-900">{selectedCategory.type?.name || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Status</label>
@@ -507,6 +703,12 @@ const Categories: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      <TypeSelectionModal
+        isOpen={showTypeSelectionModal}
+        onClose={() => setShowTypeSelectionModal(false)}
+        onSelect={handleTypeSelect}
+      />
 
     </div>
   );

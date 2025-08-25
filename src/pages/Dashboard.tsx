@@ -16,6 +16,23 @@ interface DashboardStats {
   rejectedManifests: number;
 }
 
+interface ManifestStatistics {
+  total_manifests: number;
+  status_distribution: Record<string, number>;
+  monthly_trend: Array<{ month: string; count: number }>;
+  service_distribution: Array<{ service_name: string; count: number }>;
+  performance_metrics: {
+    average_resolution_time_hours: number;
+    overdue_manifests: number;
+    average_response_time_hours: number;
+  };
+  filters_applied: {
+    start_date: string | null;
+    end_date: string | null;
+    service_id: number | null;
+  };
+}
+
 const Dashboard: React.FC = () => {
   const { admin } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
@@ -26,6 +43,7 @@ const Dashboard: React.FC = () => {
     completedManifests: 0,
     rejectedManifests: 0,
   });
+  const [manifestStats, setManifestStats] = useState<ManifestStatistics | null>(null);
   const [recentManifests, setRecentManifests] = useState<Manifest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
@@ -35,11 +53,16 @@ const Dashboard: React.FC = () => {
       try {
         setIsLoading(true);
         
-        // Buscar estatísticas
-        const [users, manifests, services, pendingManifests, completedManifests, rejectedManifests] = await Promise.all([
+        // Buscar estatísticas gerais e estatísticas dos manifestos
+        const [users, services, manifestStatistics] = await Promise.all([
           apiService.getUsers(),
-          apiService.getManifests(),
           apiService.getServices(),
+          apiService.getManifestStatistics(),
+        ]);
+
+        // Buscar manifestos para estatísticas básicas e recentes
+        const [manifests, pendingManifests, completedManifests, rejectedManifests] = await Promise.all([
+          apiService.getManifests(),
           apiService.getManifests({ status: 'pending' }),
           apiService.getManifests({ status: 'completed' }),
           apiService.getManifests({ status: 'rejected' }),
@@ -53,6 +76,9 @@ const Dashboard: React.FC = () => {
           completedManifests: completedManifests.total,
           rejectedManifests: rejectedManifests.total,
         });
+
+        // Definir estatísticas dos manifestos
+        setManifestStats(manifestStatistics.data);
 
         // Buscar manifestos recentes
         const recent = manifests.data.slice(0, 5);
@@ -177,43 +203,102 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Status dos Manifestos */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Estatísticas Detalhadas dos Manifestos */}
+      {manifestStats && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Distribuição por Status */}
+          <Card variant="gradient" hover>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Distribuição por Status</h3>
+            </div>
+            <div className="space-y-4">
+              {Object.entries(manifestStats.status_distribution).map(([status, count]) => (
+                <div key={status} className="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-100">
+                  <div className="flex items-center">
+                    <div className={`flex items-center justify-center w-10 h-10 rounded-xl mr-3 ${getStatusColor(status)}`}>
+                      <span className="text-sm font-bold">{getStatusText(status).charAt(0)}</span>
+                    </div>
+                    <span className="text-gray-700 font-medium">{getStatusText(status)}</span>
+                  </div>
+                  <span className="text-2xl font-bold text-gray-900">{count}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Métricas de Performance */}
+          <Card variant="gradient" hover>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Métricas de Performance</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="flex items-center">
+                  <div className="flex items-center justify-center w-10 h-10 bg-blue-500 rounded-xl mr-3">
+                    <Clock className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-gray-700 font-medium">Tempo Médio de Resolução</span>
+                </div>
+                <span className="text-2xl font-bold text-blue-600">
+                  {manifestStats.performance_metrics.average_resolution_time_hours}h
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-orange-50 rounded-xl border border-orange-200">
+                <div className="flex items-center">
+                  <div className="flex items-center justify-center w-10 h-10 bg-orange-500 rounded-xl mr-3">
+                    <TrendingUp className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-gray-700 font-medium">Tempo Médio de Resposta</span>
+                </div>
+                <span className="text-2xl font-bold text-orange-600">
+                  {manifestStats.performance_metrics.average_response_time_hours}h
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-200">
+                <div className="flex items-center">
+                  <div className="flex items-center justify-center w-10 h-10 bg-red-500 rounded-xl mr-3">
+                    <XCircle className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-gray-700 font-medium">Manifestos em Atraso</span>
+                </div>
+                <span className="text-2xl font-bold text-red-600">
+                  {manifestStats.performance_metrics.overdue_manifests}
+                </span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Distribuição por Serviço */}
+      {manifestStats && manifestStats.service_distribution.length > 0 && (
         <Card variant="gradient" hover>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Status dos Manifestos</h3>
+            <h3 className="text-xl font-bold text-gray-900">Distribuição por Serviço</h3>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-xl border border-yellow-200">
-              <div className="flex items-center">
-                <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl mr-3">
-                  <Clock className="h-5 w-5 text-white" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {manifestStats.service_distribution.slice(0, 6).map((service, index) => (
+              <div key={index} className="p-4 bg-white rounded-xl border border-gray-100 hover:shadow-md transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900 text-sm truncate">{service.service_name}</h4>
+                  <span className="text-2xl font-bold text-blue-600">{service.count}</span>
                 </div>
-                <span className="text-gray-700 font-medium">Pendentes</span>
-              </div>
-              <span className="text-2xl font-bold text-gray-900">{stats.pendingManifests}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-200">
-              <div className="flex items-center">
-                <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl mr-3">
-                  <CheckCircle className="h-5 w-5 text-white" />
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ 
+                      width: `${(service.count / Math.max(...manifestStats.service_distribution.map(s => s.count))) * 100}%` 
+                    }}
+                  ></div>
                 </div>
-                <span className="text-gray-700 font-medium">Concluídos</span>
               </div>
-              <span className="text-2xl font-bold text-gray-900">{stats.completedManifests}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-200">
-              <div className="flex items-center">
-                <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-xl mr-3">
-                  <XCircle className="h-5 w-5 text-white" />
-                </div>
-                <span className="text-gray-700 font-medium">Rejeitados</span>
-              </div>
-              <span className="text-2xl font-bold text-gray-900">{stats.rejectedManifests}</span>
-            </div>
+            ))}
           </div>
         </Card>
+      )}
 
+      {/* Status dos Manifestos */}
+      <div className="grid grid-cols-1 gap-6">
         {/* Manifestos Recentes */}
         <Card variant="gradient" hover className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">

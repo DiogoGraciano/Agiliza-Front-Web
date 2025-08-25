@@ -1,13 +1,13 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosResponse } from 'axios';
-import type { 
-  User, 
+import type {
+  User,
   Admin,
-  Enterprise, 
-  Service, 
-  Category, 
-  Type, 
-  Manifest, 
+  Enterprise,
+  Service,
+  Category,
+  Type,
+  Manifest,
   ManifestAttachment,
   LoginCredentials,
   LoginResponse,
@@ -104,14 +104,14 @@ class ApiService {
   // Administradores (Admin)
   async getAdmins(filters?: AdminFilters, page: number = 1): Promise<PaginatedResponse<Admin>> {
     const params = new URLSearchParams();
-    
+
     if (filters?.search) {
       params.append('search', filters.search);
     }
-    
+
     params.append('page', page.toString());
     params.append('include', 'sectors'); // Incluir setores relacionados
-    
+
     const url = `/admins?${params.toString()}`;
     const response: AxiosResponse<PaginatedResponse<Admin>> = await this.api.get(url);
     return response.data;
@@ -125,7 +125,7 @@ class ApiService {
   async getAdmin(id: number): Promise<Admin> {
     const params = new URLSearchParams();
     params.append('include', 'sectors'); // Incluir setores relacionados
-    
+
     const url = `/admins/${id}?${params.toString()}`;
     const response: AxiosResponse<Admin> = await this.api.get(url);
     return response.data;
@@ -144,7 +144,7 @@ class ApiService {
   // Usuários (Admin)
   async getUsers(filters?: UserFilters, page: number = 1): Promise<PaginatedResponse<User>> {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -152,9 +152,9 @@ class ApiService {
         }
       });
     }
-    
+
     params.append('page', page.toString());
-    
+
     const url = `/users?${params.toString()}`;
     const response: AxiosResponse<PaginatedResponse<User>> = await this.api.get(url);
     return response.data;
@@ -183,7 +183,7 @@ class ApiService {
   // Serviços
   async getServices(filters?: ServiceFilters, page: number = 1): Promise<PaginatedResponse<Service>> {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -191,9 +191,9 @@ class ApiService {
         }
       });
     }
-    
+
     params.append('page', page.toString());
-    
+
     const url = `/services?${params.toString()}`;
     const response: AxiosResponse<PaginatedResponse<Service>> = await this.api.get(url);
     return response.data;
@@ -214,13 +214,21 @@ class ApiService {
     return response.data;
   }
 
-  async createService(data: Omit<Service, 'id' | 'created_at' | 'updated_at'>): Promise<{ message: string; data: Service }> {
-    const response: AxiosResponse<{ message: string; data: Service }> = await this.api.post('/services', data);
+  async createService(data: FormData): Promise<{ message: string; data: Service }> {
+    const response: AxiosResponse<{ message: string; data: Service }> = await this.api.post('/services', data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 
-  async updateService(id: number, data: Partial<Service>): Promise<{ message: string; data: Service }> {
-    const response: AxiosResponse<{ message: string; data: Service }> = await this.api.put(`/services/${id}`, data);
+  async updateService(id: number, data: FormData): Promise<{ message: string; data: Service }> {
+    const response: AxiosResponse<{ message: string; data: Service }> = await this.api.put(`/services/${id}`, data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 
@@ -232,7 +240,7 @@ class ApiService {
   // Categorias
   async getCategories(filters?: CategoryFilters, page: number = 1): Promise<PaginatedResponse<Category>> {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -240,9 +248,9 @@ class ApiService {
         }
       });
     }
-    
+
     params.append('page', page.toString());
-    
+
     const url = `/categories?${params.toString()}`;
     const response: AxiosResponse<PaginatedResponse<Category>> = await this.api.get(url);
     return response.data;
@@ -281,7 +289,7 @@ class ApiService {
   // Tipos
   async getTypes(filters?: TypeFilters, page: number = 1): Promise<PaginatedResponse<Type>> {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -289,9 +297,9 @@ class ApiService {
         }
       });
     }
-    
+
     params.append('page', page.toString());
-    
+
     const url = `/types?${params.toString()}`;
     const response: AxiosResponse<PaginatedResponse<Type>> = await this.api.get(url);
     return response.data;
@@ -307,13 +315,21 @@ class ApiService {
     return response.data;
   }
 
-  async createType(data: Omit<Type, 'id' | 'created_at' | 'updated_at'>): Promise<{ message: string; data: Type }> {
-    const response: AxiosResponse<{ message: string; data: Type }> = await this.api.post('/types', data);
+  async createType(formData: FormData): Promise<{ message: string; data: Type }> {
+    const response: AxiosResponse<{ message: string; data: Type }> = await this.api.post('/types', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
     return response.data;
   }
 
-  async updateType(id: number, data: Partial<Type>): Promise<{ message: string; data: Type }> {
-    const response: AxiosResponse<{ message: string; data: Type }> = await this.api.put(`/types/${id}`, data);
+  async updateType(id: number, formData: FormData): Promise<{ message: string; data: Type }> {
+    const response: AxiosResponse<{ message: string; data: Type }> = await this.api.put(`/types/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
     return response.data;
   }
 
@@ -322,10 +338,29 @@ class ApiService {
     return response.data;
   }
 
+  // Upload de imagem para tipo
+  async uploadTypeImage(
+    typeId: number,
+    file: File,
+    onProgress?: (progressEvent: any) => void
+  ): Promise<{ message: string; data: { image_url: string } }> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response: AxiosResponse<{ message: string; data: { image_url: string } }> = await this.api.post(`/types/${typeId}/image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: onProgress
+    });
+
+    return response.data;
+  }
+
   // Manifestos
   async getManifests(filters?: ManifestFilters, page: number = 1): Promise<PaginatedResponse<Manifest>> {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -333,9 +368,9 @@ class ApiService {
         }
       });
     }
-    
+
     params.append('page', page.toString());
-    
+
     const url = `/manifests?${params.toString()}`;
     const response: AxiosResponse<PaginatedResponse<Manifest>> = await this.api.get(url);
     return response.data;
@@ -357,7 +392,7 @@ class ApiService {
     files: File[]
   ): Promise<ManifestWithAttachmentsResponse> {
     const formData = new FormData();
-    
+
     // Adicionar dados do manifesto
     Object.entries(manifestData).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -391,7 +426,7 @@ class ApiService {
     files?: File[]
   ): Promise<ManifestWithAttachmentsResponse> {
     const formData = new FormData();
-    
+
     // Adicionar dados do manifesto
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -425,16 +460,28 @@ class ApiService {
     return response.data;
   }
 
+  async setManifestAdmin(manifestId: number): Promise<{ message: string; data: Manifest }> {
+    const response: AxiosResponse<{ message: string; data: Manifest }> = await this.api.post(`/manifests/${manifestId}/set-admin`);
+    return response.data;
+  }
+
+  async changeDeliveryForecastDate(manifestId: number, deliveryForecastDate: string): Promise<{ message: string; data: Manifest }> {
+    const response: AxiosResponse<{ message: string; data: Manifest }> = await this.api.patch(`/manifests/${manifestId}/change-delivery-forecast-date`, {
+      delivery_forecast_date: deliveryForecastDate
+    });
+    return response.data;
+  }
+
   // Anexos
   async getManifestAttachments(filters?: { manifest_id?: number }, page: number = 1): Promise<PaginatedResponse<ManifestAttachment>> {
     const params = new URLSearchParams();
-    
+
     if (filters?.manifest_id) {
       params.append('manifest_id', filters.manifest_id.toString());
     }
-    
+
     params.append('page', page.toString());
-    
+
     const url = `/manifest-attachments?${params.toString()}`;
     const response: AxiosResponse<PaginatedResponse<ManifestAttachment>> = await this.api.get(url);
     return response.data;
@@ -467,8 +514,8 @@ class ApiService {
 
   // Upload de anexo com FormData
   async uploadAttachment(
-    manifestId: number, 
-    file: File, 
+    manifestId: number,
+    file: File,
     onProgress?: (progressEvent: any) => void
   ): Promise<AttachmentResponse> {
     const formData = new FormData();
@@ -500,11 +547,11 @@ class ApiService {
     const formData = new FormData();
     formData.append('manifest_id', data.manifest_id.toString());
     formData.append('comment', data.comment);
-    
+
     if (data.status) {
       formData.append('status', data.status);
     }
-    
+
     if (data.attachment) {
       formData.append('attachment', data.attachment);
     }
@@ -520,15 +567,15 @@ class ApiService {
 
   async updateComment(id: number, data: UpdateCommentData): Promise<CommentResponse> {
     const formData = new FormData();
-    
+
     if (data.comment) {
       formData.append('comment', data.comment);
     }
-    
+
     if (data.status) {
       formData.append('status', data.status);
     }
-    
+
     if (data.attachment) {
       formData.append('attachment', data.attachment);
     }
@@ -570,6 +617,68 @@ class ApiService {
 
   async deleteSector(id: number): Promise<{ message: string }> {
     const response: AxiosResponse<{ message: string }> = await this.api.delete(`/sectors/${id}`);
+    return response.data;
+  }
+
+  // Estatísticas dos manifestos
+  async getManifestStatistics(filters?: {
+    start_date?: string;
+    end_date?: string;
+    service_id?: number;
+  }): Promise<{
+    message: string;
+    data: {
+      total_manifests: number;
+      status_distribution: Record<string, number>;
+      monthly_trend: Array<{ month: string; count: number }>;
+      service_distribution: Array<{ service_name: string; count: number }>;
+      performance_metrics: {
+        average_resolution_time_hours: number;
+        overdue_manifests: number;
+        average_response_time_hours: number;
+      };
+      filters_applied: {
+        start_date: string | null;
+        end_date: string | null;
+        service_id: number | null;
+      };
+    };
+  }> {
+    const params = new URLSearchParams();
+
+    if (filters?.start_date) {
+      params.append('start_date', filters.start_date);
+    }
+
+    if (filters?.end_date) {
+      params.append('end_date', filters.end_date);
+    }
+
+    if (filters?.service_id) {
+      params.append('service_id', filters.service_id.toString());
+    }
+
+    const url = `/manifests/statistics?${params.toString()}`;
+    const response: AxiosResponse<{
+      message: string;
+      data: {
+        total_manifests: number;
+        status_distribution: Record<string, number>;
+        monthly_trend: Array<{ month: string; count: number }>;
+        service_distribution: Array<{ service_name: string; count: number }>;
+        performance_metrics: {
+          average_resolution_time_hours: number;
+          overdue_manifests: number;
+          average_response_time_hours: number;
+        };
+        filters_applied: {
+          start_date: string | null;
+          end_date: string | null;
+          service_id: number | null;
+        };
+      };
+    }> = await this.api.get(url);
+
     return response.data;
   }
 }
