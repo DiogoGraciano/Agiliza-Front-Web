@@ -171,7 +171,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({ attachments, onClose }) => {
               </div>
 
               {/* Botões de ação */}
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap gap-2">
                 {attachment.url ? (
                   <>
                     <Button

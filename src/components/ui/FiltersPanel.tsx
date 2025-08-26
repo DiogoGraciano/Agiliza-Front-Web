@@ -46,7 +46,7 @@ export const FiltersPanel: React.FC<FiltersPanelProps> = ({
       <div className="relative">
         {/* Cabeçalho do painel */}
         <div className="px-6 py-4 bg-gradient-to-r from-teal-50 to-blue-50 border-b border-gray-100">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center space-x-3">
               <button
                 onClick={toggleCollapse}

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Calendar, Shield, MapPin, UserCheck, Edit3 } from 'lucide-react';
 import type { Manifest } from '../../types';
 import Button from '../ui/Button';
 import FilePreview from '../ui/FilePreview';
 import ManifestComments from './ManifestComments';
+import type { ManifestCommentsRef } from './ManifestComments';
 import LocationMap from '../ui/LocationMap';
 import DeliveryDateModal from './DeliveryDateModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,18 +18,30 @@ interface ManifestViewProps {
   canUpdateStatus: (manifest: Manifest) => boolean;
 }
 
-const ManifestView: React.FC<ManifestViewProps> = ({
+export interface ManifestViewRef {
+  refreshComments: () => void;
+}
+
+const ManifestView = forwardRef<ManifestViewRef, ManifestViewProps>(({
   manifest: initialManifest,
   onClose,
   onStatusUpdate,
   canUpdateStatus
-}) => {
+}, ref) => {
   const [isLocationMapOpen, setIsLocationMapOpen] = useState(false);
   const [isSettingAdmin, setIsSettingAdmin] = useState(false);
   const [isDeliveryDateModalOpen, setIsDeliveryDateModalOpen] = useState(false);
   const [manifest, setManifest] = useState<Manifest>(initialManifest);
   const [status, setStatus] = useState<string>(initialManifest.status);
   const { admin: currentAdmin } = useAuth();
+  const commentsRef = useRef<ManifestCommentsRef>(null);
+
+  useImperativeHandle(ref, () => ({
+    refreshComments: () => {
+      commentsRef.current?.refreshComments();
+    }
+  }));
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -69,7 +82,11 @@ const ManifestView: React.FC<ManifestViewProps> = ({
 
   const updateStatus = (manifest: Manifest, newStatus: string) => {
     setStatus(newStatus);
+    setManifest(prev => ({ ...prev, status: newStatus as Manifest['status'] }));
     onStatusUpdate(manifest, newStatus);
+    setTimeout(() => {
+      commentsRef.current?.refreshComments();
+    }, 100);
   };
 
   const handleSetAdmin = async () => {
@@ -136,7 +153,7 @@ const ManifestView: React.FC<ManifestViewProps> = ({
             
             {/* Data de Entrega Esperada */}
             <div className="pt-4 border-t border-gray-200">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium text-gray-700">Data de Entrega Esperada:</span>
@@ -349,7 +366,7 @@ const ManifestView: React.FC<ManifestViewProps> = ({
                   <Button
                     onClick={() => updateStatus(manifest, 'accepted')}
                     variant="outline"
-                    className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors max-sm:w-full"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -359,7 +376,7 @@ const ManifestView: React.FC<ManifestViewProps> = ({
                   <Button
                     onClick={() => updateStatus(manifest, 'rejected')}
                     variant="outline"
-                    className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                    className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 transition-colors max-sm:w-full"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -369,7 +386,7 @@ const ManifestView: React.FC<ManifestViewProps> = ({
                   <Button
                     onClick={() => updateStatus(manifest, 'in_progress')}
                     variant="outline"
-                    className="text-purple-600 border-purple-600 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+                    className="text-purple-600 border-purple-600 hover:bg-purple-50 hover:text-purple-700 transition-colors max-sm:w-full"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -379,7 +396,7 @@ const ManifestView: React.FC<ManifestViewProps> = ({
                   <Button
                     onClick={() => updateStatus(manifest, 'completed')}
                     variant="outline"
-                    className="text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                    className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700 transition-colors max-sm:w-full"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -393,7 +410,7 @@ const ManifestView: React.FC<ManifestViewProps> = ({
             <Button
               onClick={onClose}
               variant="outline"
-              className="bg-white hover:bg-gray-50 transition-colors"
+              className="bg-white hover:bg-gray-50 transition-colors max-sm:w-full"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -408,7 +425,10 @@ const ManifestView: React.FC<ManifestViewProps> = ({
       <div className="lg:col-span-1">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm h-full">
           <div className="p-4">
-            <ManifestComments manifestId={manifest.id} />
+            <ManifestComments 
+              manifestId={manifest.id} 
+              ref={commentsRef}
+            />
           </div>
         </div>
       </div>
@@ -434,6 +454,6 @@ const ManifestView: React.FC<ManifestViewProps> = ({
       />
     </div>
   );
-};
+});
 
 export default ManifestView;

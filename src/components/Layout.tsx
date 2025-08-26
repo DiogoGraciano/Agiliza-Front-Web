@@ -170,7 +170,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             <div className="ml-4 flex items-center space-x-4">
               {/* Perfil do usuário */}
-              <div className="relative">
+              <div className="relative hidden md:block">
                 <div className="flex items-center space-x-3 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
                   <div className="flex flex-col text-right">
                     <span className="text-sm font-medium text-gray-900">{admin?.name}</span>

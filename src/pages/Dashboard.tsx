@@ -12,8 +12,6 @@ interface DashboardStats {
   totalManifests: number;
   totalServices: number;
   pendingManifests: number;
-  completedManifests: number;
-  rejectedManifests: number;
 }
 
 interface ManifestStatistics {
@@ -40,11 +38,8 @@ const Dashboard: React.FC = () => {
     totalManifests: 0,
     totalServices: 0,
     pendingManifests: 0,
-    completedManifests: 0,
-    rejectedManifests: 0,
   });
   const [manifestStats, setManifestStats] = useState<ManifestStatistics | null>(null);
-  const [recentManifests, setRecentManifests] = useState<Manifest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -60,29 +55,16 @@ const Dashboard: React.FC = () => {
           apiService.getManifestStatistics(),
         ]);
 
-        // Buscar manifestos para estatísticas básicas e recentes
-        const [manifests, pendingManifests, completedManifests, rejectedManifests] = await Promise.all([
-          apiService.getManifests(),
-          apiService.getManifests({ status: 'pending' }),
-          apiService.getManifests({ status: 'completed' }),
-          apiService.getManifests({ status: 'rejected' }),
-        ]);
-
         setStats({
           totalUsers: users.total,
-          totalManifests: manifests.total,
+          totalManifests: manifestStatistics.data.total_manifests,
           totalServices: services.total,
-          pendingManifests: pendingManifests.total,
-          completedManifests: completedManifests.total,
-          rejectedManifests: rejectedManifests.total,
+          pendingManifests: manifestStatistics.data?.status_distribution?.pending || 0,
         });
 
         // Definir estatísticas dos manifestos
         setManifestStats(manifestStatistics.data);
 
-        // Buscar manifestos recentes
-        const recent = manifests.data.slice(0, 5);
-        setRecentManifests(recent);
       } catch (error) {
         toast.error('Erro ao carregar dados do dashboard: ' + error);
       } finally {
@@ -296,49 +278,6 @@ const Dashboard: React.FC = () => {
           </div>
         </Card>
       )}
-
-      {/* Status dos Manifestos */}
-      <div className="grid grid-cols-1 gap-6">
-        {/* Manifestos Recentes */}
-        <Card variant="gradient" hover className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Manifestos Recentes</h3>
-            <span className="px-3 py-1 bg-teal-100 text-teal-800 text-sm font-medium rounded-full">
-              {recentManifests.length} novos
-            </span>
-          </div>
-          <div className="space-y-3">
-            {recentManifests.length > 0 ? (
-              recentManifests.map((manifest) => (
-                <div key={manifest.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 hover:shadow-md transition-all">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 mb-1">
-                      {manifest.description.length > 50 
-                        ? `${manifest.description.substring(0, 50)}...` 
-                        : manifest.description
-                      }
-                    </p>
-                    <p className="text-xs text-gray-500 flex items-center">
-                      <User className="h-3 w-3 mr-1" />
-                      {manifest.user?.name} • 
-                      <MapPin className="h-3 w-3 ml-2 mr-1" />
-                      {manifest.city}, {manifest.state}
-                    </p>
-                  </div>
-                  <span className={`px-3 py-1 text-xs font-medium rounded-full shadow-sm ${getStatusColor(manifest.status)}`}>
-                    {getStatusText(manifest.status)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">Nenhum manifesto encontrado</p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
 
       {/* Ações Rápidas */}
       <Card variant="gradient" hover>

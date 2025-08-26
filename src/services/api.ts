@@ -566,25 +566,32 @@ class ApiService {
   }
 
   async updateComment(id: number, data: UpdateCommentData): Promise<CommentResponse> {
-    const formData = new FormData();
+    let response: AxiosResponse<CommentResponse>;
 
-    if (data.comment) {
-      formData.append('comment', data.comment);
-    }
+    if(data.attachment) {
+      const formData = new FormData();
 
-    if (data.status) {
-      formData.append('status', data.status);
-    }
-
-    if (data.attachment) {
-      formData.append('attachment', data.attachment);
-    }
-
-    const response: AxiosResponse<CommentResponse> = await this.api.put(`/manifest-comments/${id}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
+      if (data.comment) {
+        formData.append('comment', data.comment);
       }
-    });
+
+      if (data.status) {
+        formData.append('status', data.status);
+      }
+
+      if (data.attachment) {
+        formData.append('attachment', data.attachment);
+      }
+
+      response = await this.api.put(`/manifest-comments/${id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+    }
+    else {
+      response = await this.api.put(`/manifest-comments/${id}`, data);
+    }
 
     return response.data;
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { MessageCircle, Send, Edit, Trash2, File, EyeOff, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,7 +13,11 @@ interface ManifestCommentsProps {
   manifestId: number;
 }
 
-const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
+export interface ManifestCommentsRef {
+  refreshComments: () => void;
+}
+
+const ManifestComments = forwardRef<ManifestCommentsRef, ManifestCommentsProps>(({ manifestId }, ref) => {
   const [comments, setComments] = useState<ManifestComment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,13 +64,10 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
 
       await apiService.createComment(commentData);
       
-      // Limpar formulário
       setNewComment('');
       setCommentStatus('private');
       setSelectedFile(null);
       setShowCreateForm(false);
-      
-      // Recarregar comentários
       fetchComments();
       toast.success('Comentário criado com sucesso!');
     } catch (error: any) {
@@ -81,7 +82,6 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
       return;
     }
 
-    // Verificar se o usuário pode editar este comentário
     if (!canEditComment(editingComment)) {
       toast.error('Você não tem permissão para editar este comentário.');
       return;
@@ -124,11 +124,13 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
   };
 
   const canEditComment = (comment: ManifestComment) => {
-    return comment.can_edit;
+    if (isSystemComment(comment)) return false;
+    return comment.can_edit && comment.admin_id === admin?.id;
   };
 
   const canDeleteComment = (comment: ManifestComment) => {
-    return comment.can_delete;
+    if (isSystemComment(comment)) return false;
+    return comment.can_delete && comment.admin_id === admin?.id;
   };
 
   const canViewPrivateComment = (comment: ManifestComment) => {
@@ -149,7 +151,7 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
   const getAuthorName = (comment: ManifestComment) => {
     if (comment.admin) return `${comment.admin.name} (Admin)`;
     if (comment.user) return comment.user.name;
-    return 'Usuário';
+    return 'Sistema';
   };
 
   const getAuthorAvatar = (comment: ManifestComment) => {
@@ -158,10 +160,22 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
     return 'bg-gray-500';
   };
 
+  const isSystemComment = (comment: ManifestComment) => {
+    return !comment.admin_id && !comment.user_id;
+  };
+
+  const isEditedComment = (comment: ManifestComment) => {
+    return comment.created_at !== comment.updated_at;
+  };
+
+  useImperativeHandle(ref, () => ({
+    refreshComments: fetchComments,
+  }));
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center space-x-2">
           <MessageCircle className="w-5 h-5 text-gray-600" />
           <h3 className="text-lg font-semibold text-gray-900">Comentários</h3>
@@ -282,9 +296,13 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
             return (
               <div
                 key={comment.id}
-                className={`bg-white rounded-lg border ${
-                  comment.status === 'private' ? 'border-orange-200 bg-orange-50' : 'border-gray-200'
-                } p-4`}
+                className={`rounded-lg border p-4 ${
+                  isSystemComment(comment) 
+                    ? 'bg-gray-50 border-gray-300' 
+                    : comment.status === 'private' 
+                      ? 'bg-orange-50 border-orange-200' 
+                      : 'bg-white border-gray-200'
+                }`}
               >
                 {/* Header do comentário */}
                 <div className="flex items-start justify-between mb-3">
@@ -302,7 +320,16 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
                           </span>
                         )}
                       </div>
-                      <span className="text-sm text-gray-500">{formatDate(comment.created_at)}</span>
+                      <div className="text-sm text-gray-500 grid grid-cols-1">
+                        <span className="text-xs text-gray-400">
+                          {formatDate(comment.created_at)}
+                        </span>
+                        {isEditedComment(comment) && (
+                          <span className="text-xs text-gray-400">
+                            (editado em {formatDate(comment.updated_at)})
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -455,6 +482,6 @@ const ManifestComments: React.FC<ManifestCommentsProps> = ({ manifestId }) => {
       )}
     </div>
   );
-};
+});
 
 export default ManifestComments;

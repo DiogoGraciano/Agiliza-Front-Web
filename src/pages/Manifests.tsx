@@ -521,9 +521,6 @@ const Manifests: React.FC = () => {
           Novo Manifesto
         </Button>
       </div>
-
-
-
       {/* Filtros */}
       <FiltersPanel
         title="Filtros de Busca"
