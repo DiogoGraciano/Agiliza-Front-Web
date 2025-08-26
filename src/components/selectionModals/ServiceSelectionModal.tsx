@@ -101,7 +101,7 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({
       key: 'type',
       header: 'Tipo',
       render: (service: ServiceType) => (
-        <span className="text-sm text-gray-900">{service.type?.name || 'N/A'}</span>
+        <span className="text-sm text-gray-900">{service.types && service.types.length > 0 ? service.types[0].name : 'N/A'}</span>
       )
     },
     {

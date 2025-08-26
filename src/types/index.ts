@@ -57,8 +57,11 @@ export interface Service {
   name: string;
   description: string;
   image?: string;
-  type_id?: number;
-  category_id?: number;
+  category_id: number;
+  sector_id: number;
+  page?: string;
+  show_in_dashboard: boolean;
+  order: number;
   needs_attachment?: boolean;
   needs_address?: boolean;
   needs_phone?: boolean;
@@ -67,9 +70,9 @@ export interface Service {
   needs_email?: boolean;
   created_at: string;
   updated_at: string;
-  type?: Type;
   category?: Category;
-  categories?: Category[];
+  sector?: Sector;
+  types?: Type[];
   manifests_count?: number;
 }
 
@@ -262,6 +265,8 @@ export interface ManifestFilters {
 export interface ServiceFilters {
   type_id?: number;
   category_id?: number;
+  sector_id?: number;
+  show_in_dashboard?: boolean;
   name?: string;
 }
 

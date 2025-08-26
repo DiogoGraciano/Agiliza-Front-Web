@@ -8,13 +8,14 @@ import {
   Image as ImageIcon,
   Layers,
   Tag,
+  Briefcase,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import apiService from '../services/api';
-import type { Service, Type, ServiceFilters, Category, UploadedFile } from '../types';
+import type { Service, Type, ServiceFilters, Category, UploadedFile, Sector } from '../types';
 import { SERVICE_IMAGE_CONFIG } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -26,14 +27,19 @@ import Modal from '../components/ui/Modal';
 import { FiltersPanel } from '../components/ui/FiltersPanel';
 import TypeSelectionModal from '../components/selectionModals/TypeSelectionModal';
 import CategorySelectionModal from '../components/selectionModals/CategorySelectionModal';
+import SectorSelectionModal from '../components/selectionModals/SectorSelectionModal';
 import FileUpload from '../components/ui/FileUpload';
 import FilePreview from '../components/ui/FilePreview';
 
 const serviceSchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
   description: yup.string().required('Descrição é obrigatória'),
-  type_id: yup.number().optional(),
-  category_id: yup.number().optional(),
+  category_id: yup.number().required('Categoria é obrigatória'),
+  sector_id: yup.number().required('Setor é obrigatório'),
+  page: yup.string().optional(),
+  show_in_dashboard: yup.boolean().optional().default(true),
+  order: yup.number().optional().default(1),
+  types: yup.array().of(yup.number()).optional().default([]),
   needs_attachment: yup.boolean().optional().default(false),
   needs_email: yup.boolean().optional().default(false),
   needs_address: yup.boolean().optional().default(false),
@@ -50,13 +56,16 @@ const Services: React.FC = () => {
   // Estados para filtros
   const [filterType, setFilterType] = useState<Type | null>(null);
   const [filterCategory, setFilterCategory] = useState<Category | null>(null);
+  const [filterSector, setFilterSector] = useState<Sector | null>(null);
   
   // Estados para formulários
-  const [formType, setFormType] = useState<Type | null>(null);
+  const [formTypes, setFormTypes] = useState<Type[]>([]);
   const [formCategory, setFormCategory] = useState<Category | null>(null);
+  const [formSector, setFormSector] = useState<Sector | null>(null);
   
   const [showTypeSelectionModal, setShowTypeSelectionModal] = useState(false);
   const [showCategorySelectionModal, setShowCategorySelectionModal] = useState(false);
+  const [showSectorSelectionModal, setShowSectorSelectionModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -80,8 +89,9 @@ const Services: React.FC = () => {
 
   const resetForm = () => {
     reset();
-    setFormType(null);
+    setFormTypes([]);
     setFormCategory(null);
+    setFormSector(null);
     setCreateImageFiles([]);
     setEditImageFiles([]);
   };
@@ -104,6 +114,10 @@ const Services: React.FC = () => {
 
       if (filterCategory) {
         filters.category_id = filterCategory.id;
+      }
+
+      if (filterSector) {
+        filters.sector_id = filterSector.id;
       }
 
       if (searchTerm.trim()) {
@@ -131,6 +145,7 @@ const Services: React.FC = () => {
     if (searchTerm.trim()) count++;
     if (filterType) count++;
     if (filterCategory) count++;
+    if (filterSector) count++;
     return count;
   };
 
@@ -138,6 +153,7 @@ const Services: React.FC = () => {
     setSearchTerm('');
     setFilterType(null);
     setFilterCategory(null);
+    setFilterSector(null);
     setCurrentPage(1);
     fetchServices();
   };
@@ -154,11 +170,22 @@ const Services: React.FC = () => {
       formData.append('description', data.description);
       formData.append('image', createImageFiles[0].file);
       
-      if (formType?.id) {
-        formData.append('type_id', formType.id.toString());
-      }
       if (formCategory?.id) {
         formData.append('category_id', formCategory.id.toString());
+      }
+      if (formSector?.id) {
+        formData.append('sector_id', formSector.id.toString());
+      }
+      if (formTypes.length > 0) {
+        formTypes.forEach(type => {
+          formData.append('types[]', type.id.toString());
+        });
+      }
+      
+      formData.append('show_in_dashboard', data.show_in_dashboard.toString());
+      formData.append('order', data.order.toString());
+      if (data.page) {
+        formData.append('page', data.page);
       }
       
       formData.append('needs_attachment', data.needs_attachment.toString());
@@ -193,11 +220,22 @@ const Services: React.FC = () => {
       formData.append('description', data.description);
       formData.append('image', editImageFiles[0].file);
       
-      if (formType?.id) {
-        formData.append('type_id', formType.id.toString());
-      }
       if (formCategory?.id) {
         formData.append('category_id', formCategory.id.toString());
+      }
+      if (formSector?.id) {
+        formData.append('sector_id', formSector.id.toString());
+      }
+      if (formTypes.length > 0) {
+        formTypes.forEach(type => {
+          formData.append('types[]', type.id.toString());
+        });
+      }
+      
+      formData.append('show_in_dashboard', data.show_in_dashboard.toString());
+      formData.append('order', data.order.toString());
+      if (data.page) {
+        formData.append('page', data.page);
       }
       
       formData.append('needs_attachment', data.needs_attachment.toString());
@@ -235,20 +273,26 @@ const Services: React.FC = () => {
     setSelectedService(service);
     setValue('name', service.name);
     setValue('description', service.description);
-    setValue('type_id', service.type_id || 0);
     setValue('category_id', service.category_id || 0);
+    setValue('sector_id', service.sector_id || 0);
+    setValue('show_in_dashboard', service.show_in_dashboard || true);
+    setValue('order', service.order || 1);
+    setValue('page', service.page || '');
     setValue('needs_attachment', service.needs_attachment || false);
     setValue('needs_address', service.needs_address || false);
     setValue('needs_phone', service.needs_phone || false);
     setValue('needs_birth_date', service.needs_birth_date || false);
     setValue('needs_cpf_cnpj', service.needs_cpf_cnpj || false);
     setValue('needs_email', service.needs_email || false);
-    // Definir os tipos e categorias selecionados
-    if (service.type) {
-      setFormType(service.type);
+    // Definir os tipos, categorias e setores selecionados
+    if (service.types) {
+      setFormTypes(service.types);
     }
     if (service.category) {
       setFormCategory(service.category);
+    }
+    if (service.sector) {
+      setFormSector(service.sector);
     }
     // Resetar arquivos de imagem
     setEditImageFiles([]);
@@ -265,7 +309,12 @@ const Services: React.FC = () => {
     if (modalContext === 'filter') {
       setFilterType(type);
     } else {
-      setFormType(type);
+      // Adicionar o tipo à lista de tipos selecionados
+      setFormTypes(prev => {
+        const exists = prev.find(t => t.id === type.id);
+        if (exists) return prev;
+        return [...prev, type];
+      });
     }
     setShowTypeSelectionModal(false);
   };
@@ -277,6 +326,15 @@ const Services: React.FC = () => {
       setFormCategory(category);
     }
     setShowCategorySelectionModal(false);
+  };
+
+  const handleSectorSelect = (sector: Sector) => {
+    if (modalContext === 'filter') {
+      setFilterSector(sector);
+    } else {
+      setFormSector(sector);
+    }
+    setShowSectorSelectionModal(false);
   };
 
   const handlePageChange = (page: number) => {
@@ -313,10 +371,20 @@ const Services: React.FC = () => {
       )
     },
     {
-      key: 'type',
-      header: 'Tipo',
+      key: 'types',
+      header: 'Tipos',
       render: (service: Service) => (
-        <span className="text-sm text-gray-900">{service.type?.name || 'N/A'}</span>
+        <div className="flex flex-wrap gap-1">
+          {service.types && service.types.length > 0 ? (
+            service.types.map(type => (
+              <span key={type.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {type.name}
+              </span>
+            ))
+          ) : (
+            <span className="text-sm text-gray-500">N/A</span>
+          )}
+        </div>
       )
     },
     {
@@ -324,6 +392,13 @@ const Services: React.FC = () => {
       header: 'Categoria',
       render: (service: Service) => (
         <span className="text-sm text-gray-900">{service.category?.name || 'N/A'}</span>
+      )
+    },
+    {
+      key: 'sector',
+      header: 'Setor',
+      render: (service: Service) => (
+        <span className="text-sm text-gray-900">{service.sector?.name || 'N/A'}</span>
       )
     },
     {
@@ -499,6 +574,32 @@ const Services: React.FC = () => {
               </Button>
             </div>
           </div>
+
+          {/* Filtro por setor */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Setor
+            </label>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="Selecione setor"
+                value={filterSector?.name || ''}
+                readOnly
+                className="flex-1"
+              />
+              <Button
+                onClick={() => {
+                  setModalContext('filter');
+                  setShowSectorSelectionModal(true);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Briefcase className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </FiltersPanel>
 
@@ -577,15 +678,23 @@ const Services: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo *
+                Tipos
               </label>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Selecione tipo"
-                  value={formType?.name || ''}
-                  readOnly
-                  className="flex-1"
-                />
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {formTypes.map(type => (
+                    <span key={type.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {type.name}
+                      <button
+                        type="button"
+                        onClick={() => setFormTypes(prev => prev.filter(t => t.id !== type.id))}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
                 <Button
                   type="button"
                   onClick={() => {
@@ -595,7 +704,8 @@ const Services: React.FC = () => {
                   variant="outline"
                   size="sm"
                 >
-                  <Layers className="h-4 w-4" />
+                  <Layers className="h-4 w-4 mr-2" />
+                  Adicionar Tipo
                 </Button>
               </div>
             </div>
@@ -624,6 +734,31 @@ const Services: React.FC = () => {
                 </Button>
               </div>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Setor *
+              </label>
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Selecione setor"
+                  value={formSector?.name || ''}
+                  readOnly
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setModalContext('form');
+                    setShowSectorSelectionModal(true);
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Briefcase className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -648,6 +783,42 @@ const Services: React.FC = () => {
               title="Imagem *"
               subtitle="Carregue uma imagem para o serviço"
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Exibir no Dashboard
+              </label>
+              <Checkbox
+                checked={watch('show_in_dashboard')}
+                onChange={(e) => setValue('show_in_dashboard', e.target.checked)}
+                label="Sim"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ordem de Exibição
+              </label>
+              <Input
+                {...register('order')}
+                type="number"
+                placeholder="1"
+                min="1"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Configurações da Página (JSON)
+              </label>
+              <Textarea
+                {...register('page')}
+                placeholder='{"title": "Título da Página", "content": "Conteúdo da página"}'
+                rows={3}
+              />
+            </div>
           </div>
 
           <div>
@@ -732,15 +903,23 @@ const Services: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo
+                Tipos
               </label>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Selecione tipo"
-                  value={formType?.name || ''}
-                  readOnly
-                  className="flex-1"
-                />
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {formTypes.map(type => (
+                    <span key={type.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {type.name}
+                      <button
+                        type="button"
+                        onClick={() => setFormTypes(prev => prev.filter(t => t.id !== type.id))}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
                 <Button
                   type="button"
                   onClick={() => {
@@ -750,7 +929,8 @@ const Services: React.FC = () => {
                   variant="outline"
                   size="sm"
                 >
-                  <Layers className="h-4 w-4" />
+                  <Layers className="h-4 w-4 mr-2" />
+                  Adicionar Tipo
                 </Button>
               </div>
             </div>
@@ -776,6 +956,31 @@ const Services: React.FC = () => {
                   size="sm"
                 >
                   <Tag className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Setor
+              </label>
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Selecione setor"
+                  value={formSector?.name || ''}
+                  readOnly
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setModalContext('form');
+                    setShowSectorSelectionModal(true);
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Briefcase className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -816,6 +1021,42 @@ const Services: React.FC = () => {
                 />
               </div>
             )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Exibir no Dashboard
+              </label>
+              <Checkbox
+                checked={watch('show_in_dashboard')}
+                onChange={(e) => setValue('show_in_dashboard', e.target.checked)}
+                label="Sim"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ordem de Exibição
+              </label>
+              <Input
+                {...register('order')}
+                type="number"
+                placeholder="1"
+                min="1"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Configurações da Página (JSON)
+              </label>
+              <Textarea
+                {...register('page')}
+                placeholder='{"title": "Título da Página", "content": "Conteúdo da página"}'
+                rows={3}
+              />
+            </div>
           </div>
 
           <div>
@@ -902,12 +1143,36 @@ const Services: React.FC = () => {
                     <p className="text-sm text-gray-900">{selectedService.description}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipo</label>
-                    <p className="text-sm text-gray-900">{selectedService.type?.name || 'N/A'}</p>
+                    <label className="block text-sm font-medium text-gray-700">Tipos</label>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedService.types && selectedService.types.length > 0 ? (
+                        selectedService.types.map(type => (
+                          <span key={type.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {type.name}
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">N/A</p>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Categoria</label>
                     <p className="text-sm text-gray-900">{selectedService.category?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Setor</label>
+                    <p className="text-sm text-gray-900">{selectedService.sector?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Exibir no Dashboard</label>
+                    <p className="text-sm text-gray-900">
+                      {selectedService.show_in_dashboard ? 'Sim' : 'Não'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Ordem de Exibição</label>
+                    <p className="text-sm text-gray-900">{selectedService.order}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Data de Criação</label>
@@ -988,6 +1253,12 @@ const Services: React.FC = () => {
         isOpen={showTypeSelectionModal}
         onClose={() => setShowTypeSelectionModal(false)}
         onSelect={handleTypeSelect}
+      />
+
+      <SectorSelectionModal
+        isOpen={showSectorSelectionModal}
+        onClose={() => setShowSectorSelectionModal(false)}
+        onSelect={handleSectorSelect}
       />
 
     </div>
