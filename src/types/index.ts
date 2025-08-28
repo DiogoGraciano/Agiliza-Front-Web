@@ -57,7 +57,7 @@ export interface Service {
   name: string;
   description: string;
   image?: string;
-  category_id: number;
+  category_id?: number; // Mantido para compatibilidade
   sector_id: number;
   page?: string;
   show_in_dashboard: boolean;
@@ -70,7 +70,8 @@ export interface Service {
   needs_email?: boolean;
   created_at: string;
   updated_at: string;
-  category?: Category;
+  category?: Category; // Mantido para compatibilidade
+  categories?: Category[]; // Nova propriedade para múltiplas categorias
   sector?: Sector;
   types?: Type[];
   manifests_count?: number;
@@ -94,6 +95,117 @@ export interface Type {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Interfaces para o Sistema de Gerenciamento de Senhas
+export interface Queue {
+  id: number;
+  name: string;
+  priority: number;
+  image?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  locations?: Location[];
+}
+
+export interface Location {
+  id: number;
+  name: string;
+  address?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  latitude?: string;
+  longitude?: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  queues?: Queue[];
+}
+
+export interface CreateLocationData {
+  name: string;
+  address?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  latitude?: string;
+  longitude?: string;
+  description?: string;
+  is_active?: boolean;
+  queues?: number[];
+}
+
+export interface UpdateLocationData extends Partial<CreateLocationData> {}
+
+export interface Desk {
+  id: number;
+  name: string;
+  number: string;
+  location_id: number;
+  status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
+  location?: Location;
+}
+
+export interface Ticket {
+  id: number;
+  number?: string;
+  queue_id: number;
+  location_id: number;
+  desk_id?: number;
+  user_id?: number;
+  status: 'called' | 'in_progress' | 'completed' | 'cancelled';
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  created_at: string;
+  updated_at: string;
+  queue?: Queue;
+  location?: Location;
+  desk?: Desk;
+  user?: User;
+}
+
+// Filtros para as novas entidades
+export interface QueueFilters {
+  name?: string;
+  priority?: number;
+  is_active?: boolean;
+}
+
+export interface LocationFilters {
+  name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  is_active?: boolean;
+}
+
+export interface DeskFilters {
+  name?: string;
+  number?: string;
+  status?: string;
+  location_id?: number;
+}
+
+export interface TicketFilters {
+  queue_id?: number;
+  location_id?: number;
+  desk_id?: number;
+  user_id?: number;
+  status?: string;
+  priority?: string;
 }
 
 export interface Manifest {

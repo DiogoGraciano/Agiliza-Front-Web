@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, FileText, Settings, TrendingUp, MapPin, Clock, CheckCircle, XCircle, User } from 'lucide-react';
+import { Users, FileText, Settings, TrendingUp, Clock, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiService from '../services/api';
 import Card from '../components/ui/Card';
-import type { Manifest } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
@@ -130,9 +129,6 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl font-bold mb-2">
             Bem-vindo de volta, {admin?.name}! 👋
           </h1>
-          <p className="text-teal-100 text-lg">
-            Aqui está um resumo do que está acontecendo no sistema hoje.
-          </p>
         </div>
         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full"></div>
         <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-white/5 rounded-full"></div>

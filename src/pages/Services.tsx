@@ -4,7 +4,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  Calendar,
   Image as ImageIcon,
   Layers,
   Tag,
@@ -34,7 +33,7 @@ import FilePreview from '../components/ui/FilePreview';
 const serviceSchema = yup.object({
   name: yup.string().required('Nome é obrigatório'),
   description: yup.string().required('Descrição é obrigatória'),
-  category_id: yup.number().required('Categoria é obrigatória'),
+  categories: yup.array().of(yup.number()).min(1, 'Pelo menos uma categoria é obrigatória').required('Categorias são obrigatórias'),
   sector_id: yup.number().required('Setor é obrigatório'),
   page: yup.string().optional(),
   show_in_dashboard: yup.boolean().optional().default(true),
@@ -52,17 +51,17 @@ const Services: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Estados para filtros
   const [filterType, setFilterType] = useState<Type | null>(null);
   const [filterCategory, setFilterCategory] = useState<Category | null>(null);
   const [filterSector, setFilterSector] = useState<Sector | null>(null);
-  
+
   // Estados para formulários
   const [formTypes, setFormTypes] = useState<Type[]>([]);
-  const [formCategory, setFormCategory] = useState<Category | null>(null);
+  const [formCategories, setFormCategories] = useState<Category[]>([]);
   const [formSector, setFormSector] = useState<Sector | null>(null);
-  
+
   const [showTypeSelectionModal, setShowTypeSelectionModal] = useState(false);
   const [showCategorySelectionModal, setShowCategorySelectionModal] = useState(false);
   const [showSectorSelectionModal, setShowSectorSelectionModal] = useState(false);
@@ -90,10 +89,13 @@ const Services: React.FC = () => {
   const resetForm = () => {
     reset();
     setFormTypes([]);
-    setFormCategory(null);
+    setFormCategories([]);
     setFormSector(null);
     setCreateImageFiles([]);
     setEditImageFiles([]);
+    // Limpar os campos do formulário
+    setValue('categories', []);
+    setValue('types', []);
   };
 
   useEffect(() => {
@@ -165,14 +167,22 @@ const Services: React.FC = () => {
         return;
       }
 
+      // Validar se há categorias selecionadas
+      if (!data.categories || data.categories.length === 0) {
+        toast.error('Por favor, selecione pelo menos uma categoria');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('name', data.name);
       formData.append('description', data.description);
       formData.append('image', createImageFiles[0].file);
-      
-      if (formCategory?.id) {
-        formData.append('category_id', formCategory.id.toString());
-      }
+
+      // Adicionar múltiplas categorias
+      formCategories.forEach(category => {
+        formData.append('categories[]', category.id.toString());
+      });
+
       if (formSector?.id) {
         formData.append('sector_id', formSector.id.toString());
       }
@@ -181,13 +191,13 @@ const Services: React.FC = () => {
           formData.append('types[]', type.id.toString());
         });
       }
-      
+
       formData.append('show_in_dashboard', data.show_in_dashboard.toString());
       formData.append('order', data.order.toString());
       if (data.page) {
         formData.append('page', data.page);
       }
-      
+
       formData.append('needs_attachment', data.needs_attachment.toString());
       formData.append('needs_email', data.needs_email.toString());
       formData.append('needs_address', data.needs_address.toString());
@@ -196,7 +206,7 @@ const Services: React.FC = () => {
       formData.append('needs_cpf_cnpj', data.needs_cpf_cnpj.toString());
 
       await apiService.createService(formData);
-      
+
       setShowCreateModal(false);
       resetForm();
       setCreateImageFiles([]);
@@ -210,19 +220,24 @@ const Services: React.FC = () => {
   const handleUpdateService = async (data: any) => {
     if (!selectedService) return;
     try {
-      if (editImageFiles.length === 0) {
-        toast.error('Por favor, selecione uma imagem');
+      // Validar se há categorias selecionadas
+      if (!data.categories || data.categories.length === 0) {
+        toast.error('Por favor, selecione pelo menos uma categoria');
         return;
       }
 
       const formData = new FormData();
       formData.append('name', data.name);
       formData.append('description', data.description);
-      formData.append('image', editImageFiles[0].file);
-      
-      if (formCategory?.id) {
-        formData.append('category_id', formCategory.id.toString());
+      if (editImageFiles.length > 0) {
+        formData.append('image', editImageFiles[0].file);
       }
+
+      // Adicionar múltiplas categorias
+      formCategories.forEach(category => {
+        formData.append('categories[]', category.id.toString());
+      });
+
       if (formSector?.id) {
         formData.append('sector_id', formSector.id.toString());
       }
@@ -231,13 +246,13 @@ const Services: React.FC = () => {
           formData.append('types[]', type.id.toString());
         });
       }
-      
+
       formData.append('show_in_dashboard', data.show_in_dashboard.toString());
       formData.append('order', data.order.toString());
       if (data.page) {
         formData.append('page', data.page);
       }
-      
+
       formData.append('needs_attachment', data.needs_attachment.toString());
       formData.append('needs_email', data.needs_email.toString());
       formData.append('needs_address', data.needs_address.toString());
@@ -246,7 +261,7 @@ const Services: React.FC = () => {
       formData.append('needs_cpf_cnpj', data.needs_cpf_cnpj.toString());
 
       await apiService.updateService(selectedService.id, formData);
-      
+
       setShowEditModal(false);
       resetForm();
       setSelectedService(null);
@@ -273,7 +288,6 @@ const Services: React.FC = () => {
     setSelectedService(service);
     setValue('name', service.name);
     setValue('description', service.description);
-    setValue('category_id', service.category_id || 0);
     setValue('sector_id', service.sector_id || 0);
     setValue('show_in_dashboard', service.show_in_dashboard || true);
     setValue('order', service.order || 1);
@@ -284,12 +298,21 @@ const Services: React.FC = () => {
     setValue('needs_birth_date', service.needs_birth_date || false);
     setValue('needs_cpf_cnpj', service.needs_cpf_cnpj || false);
     setValue('needs_email', service.needs_email || false);
+
     // Definir os tipos, categorias e setores selecionados
     if (service.types) {
       setFormTypes(service.types);
+      setValue('types', service.types.map(t => t.id));
     }
-    if (service.category) {
-      setFormCategory(service.category);
+    if (service.categories && service.categories.length > 0) {
+      setFormCategories(service.categories);
+      setValue('categories', service.categories.map(c => c.id));
+    } else if (service.category) {
+      setFormCategories([service.category]);
+      setValue('categories', [service.category.id]);
+    } else {
+      setFormCategories([]);
+      setValue('categories', []);
     }
     if (service.sector) {
       setFormSector(service.sector);
@@ -313,7 +336,10 @@ const Services: React.FC = () => {
       setFormTypes(prev => {
         const exists = prev.find(t => t.id === type.id);
         if (exists) return prev;
-        return [...prev, type];
+        const newTypes = [...prev, type];
+        // Atualizar o campo do formulário
+        setValue('types', newTypes.map(t => t.id));
+        return newTypes;
       });
     }
     setShowTypeSelectionModal(false);
@@ -323,7 +349,15 @@ const Services: React.FC = () => {
     if (modalContext === 'filter') {
       setFilterCategory(category);
     } else {
-      setFormCategory(category);
+      // Adicionar a categoria à lista de categorias selecionadas
+      setFormCategories(prev => {
+        const exists = prev.find(c => c.id === category.id);
+        if (exists) return prev;
+        const newCategories = [...prev, category];
+        // Atualizar o campo do formulário
+        setValue('categories', newCategories.map(c => c.id));
+        return newCategories;
+      });
     }
     setShowCategorySelectionModal(false);
   };
@@ -362,15 +396,6 @@ const Services: React.FC = () => {
       )
     },
     {
-      key: 'description',
-      header: 'Descrição',
-      render: (service: Service) => (
-        <div className="max-w-xs">
-          <p className="text-sm text-gray-900 truncate">{service.description}</p>
-        </div>
-      )
-    },
-    {
       key: 'types',
       header: 'Tipos',
       render: (service: Service) => (
@@ -388,10 +413,24 @@ const Services: React.FC = () => {
       )
     },
     {
-      key: 'category',
-      header: 'Categoria',
+      key: 'categories',
+      header: 'Categorias',
       render: (service: Service) => (
-        <span className="text-sm text-gray-900">{service.category?.name || 'N/A'}</span>
+        <div className="flex flex-wrap gap-1">
+          {service.categories && service.categories.length > 0 ? (
+            service.categories.map(category => (
+              <span key={category.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                {category.name}
+              </span>
+            ))
+          ) : service.category ? (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              {service.category.name}
+            </span>
+          ) : (
+            <span className="text-sm text-gray-500">N/A</span>
+          )}
+        </div>
       )
     },
     {
@@ -440,13 +479,31 @@ const Services: React.FC = () => {
       )
     },
     {
-      key: 'created_at',
-      header: 'Data',
+      key: 'show_in_dashboard',
+      header: 'Exibido no Dashboard',
+      render: (service: Service) => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${service.show_in_dashboard
+            ? 'bg-green-100 text-green-800'
+            : 'bg-gray-200 text-gray-600'
+            }`}
+          title={
+            service.show_in_dashboard
+              ? 'Exibido no Dashboard'
+              : 'Não exibido no Dashboard'
+          }
+        >
+          {service.show_in_dashboard ? 'Sim' : 'Não'}
+        </span>
+      )
+    },
+    {
+      key: 'order',
+      header: 'Ordem',
       render: (service: Service) => (
         <div className="flex items-center space-x-2">
-          <Calendar className="h-4 w-4 text-gray-500" />
-          <span className="text-sm text-gray-900">
-            {new Date(service.created_at).toLocaleDateString('pt-BR')}
+          <span className="text-sm text-gray-900 font-semibold">
+            {service.order}
           </span>
         </div>
       )
@@ -664,8 +721,8 @@ const Services: React.FC = () => {
         <form onSubmit={(e) => {
           handleSubmit(handleCreateService)(e);
         }} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nome *
               </label>
@@ -675,7 +732,45 @@ const Services: React.FC = () => {
                 error={errors.name?.message}
               />
             </div>
-
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Categoria *
+              </label>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {formCategories.map(category => (
+                    <span key={category.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {category.name}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newCategories = formCategories.filter(c => c.id !== category.id);
+                          setFormCategories(newCategories);
+                          setValue('categories', newCategories.map(c => c.id));
+                        }}
+                        className="ml-1 text-green-600 hover:text-green-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setModalContext('form');
+                      setShowCategorySelectionModal(true);
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Tag className="h-4 w-4 mr-2" />
+                    Adicionar Categoria
+                  </Button>
+                </div>
+              </div>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tipos
@@ -687,7 +782,11 @@ const Services: React.FC = () => {
                       {type.name}
                       <button
                         type="button"
-                        onClick={() => setFormTypes(prev => prev.filter(t => t.id !== type.id))}
+                        onClick={() => {
+                          const newTypes = formTypes.filter(t => t.id !== type.id);
+                          setFormTypes(newTypes);
+                          setValue('types', newTypes.map(t => t.id));
+                        }}
                         className="ml-1 text-blue-600 hover:text-blue-800"
                       >
                         ×
@@ -709,32 +808,6 @@ const Services: React.FC = () => {
                 </Button>
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categoria *
-              </label>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Selecione categoria"
-                  value={formCategory?.name || ''}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setModalContext('form');
-                    setShowCategorySelectionModal(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Tag className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Setor *
@@ -760,7 +833,6 @@ const Services: React.FC = () => {
               </div>
             </div>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Descrição *
@@ -772,7 +844,6 @@ const Services: React.FC = () => {
               error={errors.description?.message}
             />
           </div>
-
           <div>
             <FileUpload
               onFilesChange={setCreateImageFiles}
@@ -799,7 +870,7 @@ const Services: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ordem de Exibição
+                Ordem de Exibição no Dashboard
               </label>
               <Input
                 {...register('order')}
@@ -809,7 +880,7 @@ const Services: React.FC = () => {
               />
             </div>
 
-            <div>
+            <div className="hidden">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Configurações da Página (JSON)
               </label>
@@ -889,8 +960,8 @@ const Services: React.FC = () => {
         <form onSubmit={(e) => {
           handleSubmit(handleUpdateService)(e);
         }} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nome *
               </label>
@@ -912,7 +983,11 @@ const Services: React.FC = () => {
                       {type.name}
                       <button
                         type="button"
-                        onClick={() => setFormTypes(prev => prev.filter(t => t.id !== type.id))}
+                        onClick={() => {
+                          const newTypes = formTypes.filter(t => t.id !== type.id);
+                          setFormTypes(newTypes);
+                          setValue('types', newTypes.map(t => t.id));
+                        }}
                         className="ml-1 text-blue-600 hover:text-blue-800"
                       >
                         ×
@@ -939,24 +1014,39 @@ const Services: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Categoria
               </label>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Selecione categoria"
-                  value={formCategory?.name || ''}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setModalContext('form');
-                    setShowCategorySelectionModal(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Tag className="h-4 w-4" />
-                </Button>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {formCategories.map(category => (
+                    <span key={category.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {category.name}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newCategories = formCategories.filter(c => c.id !== category.id);
+                          setFormCategories(newCategories);
+                          setValue('categories', newCategories.map(c => c.id));
+                        }}
+                        className="ml-1 text-green-600 hover:text-green-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setModalContext('form');
+                      setShowCategorySelectionModal(true);
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Tag className="h-4 w-4 mr-2" />
+                    Adicionar Categoria
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -1008,15 +1098,12 @@ const Services: React.FC = () => {
               title="Imagem *"
               subtitle="Carregue uma nova imagem para o serviço"
             />
-            {editImageFiles.length === 0 && (
-              <p className="text-sm text-red-600 mt-1">Imagem é obrigatória</p>
-            )}
             {selectedService?.image && (
               <div className="mt-3">
                 <p className="text-sm text-gray-600 mb-2">Imagem atual:</p>
-                <img 
-                  src={selectedService.image} 
-                  alt={selectedService.name} 
+                <img
+                  src={selectedService.image}
+                  alt={selectedService.name}
                   className="w-24 h-24 object-cover rounded-lg border border-gray-200"
                 />
               </div>
@@ -1047,7 +1134,7 @@ const Services: React.FC = () => {
               />
             </div>
 
-            <div>
+            <div className="hidden">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Configurações da Página (JSON)
               </label>
@@ -1157,8 +1244,22 @@ const Services: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Categoria</label>
-                    <p className="text-sm text-gray-900">{selectedService.category?.name || 'N/A'}</p>
+                    <label className="block text-sm font-medium text-gray-700">Categorias</label>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedService.categories && selectedService.categories.length > 0 ? (
+                        selectedService.categories.map(category => (
+                          <span key={category.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {category.name}
+                          </span>
+                        ))
+                      ) : selectedService.category ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          {selectedService.category.name}
+                        </span>
+                      ) : (
+                        <p className="text-sm text-gray-500">N/A</p>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Setor</label>

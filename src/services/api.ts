@@ -25,7 +25,17 @@ import type {
   CreateCommentData,
   UpdateCommentData,
   CommentResponse,
-  Sector
+  Sector,
+  Queue,
+  Location,
+  CreateLocationData,
+  UpdateLocationData,
+  Desk,
+  Ticket,
+  QueueFilters,
+  LocationFilters,
+  DeskFilters,
+  TicketFilters
 } from '../types';
 
 class ApiService {
@@ -160,6 +170,11 @@ class ApiService {
     return response.data;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    const response: AxiosResponse<{ data: User[] }> = await this.api.get('/users?per_page=1000');
+    return response.data.data;
+  }
+
   async createUser(data: Omit<RegisterData, 'password'> & { password: string }): Promise<{ message: string; data: User }> {
     const response: AxiosResponse<{ message: string; data: User }> = await this.api.post('/users', data);
     return response.data;
@@ -224,7 +239,8 @@ class ApiService {
   }
 
   async updateService(id: number, data: FormData): Promise<{ message: string; data: Service }> {
-    const response: AxiosResponse<{ message: string; data: Service }> = await this.api.put(`/services/${id}`, data, {
+    data.append('_method', 'PUT');
+    const response: AxiosResponse<{ message: string; data: Service }> = await this.api.post(`/services/${id}`, data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -325,7 +341,8 @@ class ApiService {
   }
 
   async updateType(id: number, formData: FormData): Promise<{ message: string; data: Type }> {
-    const response: AxiosResponse<{ message: string; data: Type }> = await this.api.put(`/types/${id}`, formData, {
+    formData.append('_method', 'PUT');
+    const response: AxiosResponse<{ message: string; data: Type }> = await this.api.post(`/types/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
@@ -568,30 +585,26 @@ class ApiService {
   async updateComment(id: number, data: UpdateCommentData): Promise<CommentResponse> {
     let response: AxiosResponse<CommentResponse>;
 
-    if(data.attachment) {
-      const formData = new FormData();
+    const formData = new FormData();
 
-      if (data.comment) {
-        formData.append('comment', data.comment);
-      }
-
-      if (data.status) {
-        formData.append('status', data.status);
-      }
-
-      if (data.attachment) {
-        formData.append('attachment', data.attachment);
-      }
-
-      response = await this.api.put(`/manifest-comments/${id}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        }
-      });
+    if (data.comment) {
+      formData.append('comment', data.comment);
     }
-    else {
-      response = await this.api.put(`/manifest-comments/${id}`, data);
+
+    if (data.status) {
+      formData.append('status', data.status);
     }
+
+    if (data.attachment) {
+      formData.append('attachment', data.attachment);
+    }
+
+    formData.append('_method', 'PUT');
+    response = await this.api.post(`/manifest-comments/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
 
     return response.data;
   }
@@ -686,6 +699,226 @@ class ApiService {
       };
     }> = await this.api.get(url);
 
+    return response.data;
+  }
+
+  // Queue
+  async getQueues(filters?: QueueFilters, page: number = 1): Promise<PaginatedResponse<Queue>> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    params.append('page', page.toString());
+
+    const url = `/queues?${params.toString()}`;
+    const response: AxiosResponse<PaginatedResponse<Queue>> = await this.api.get(url);
+    return response.data;
+  }
+
+  async getAllQueues(): Promise<Queue[]> {
+    const response: AxiosResponse<{ data: Queue[] }> = await this.api.get('/queues?per_page=1000');
+    return response.data.data;
+  }
+
+  async getQueue(id: number): Promise<Queue> {
+    const response: AxiosResponse<Queue> = await this.api.get(`/queues/${id}`);
+    return response.data;
+  }
+
+  async createQueue(data: Omit<Queue, 'id' | 'created_at' | 'updated_at'>): Promise<{ message: string; data: Queue }> {
+    const formData = new FormData();
+    formData.append('name', data.name);
+    formData.append('priority', data.priority.toString());
+    formData.append('is_active', data.is_active.toString());
+
+    if (data.image) {
+      formData.append('image', data.image);
+    }
+
+    if (data.locations) {
+      data.locations.forEach(location => {
+        formData.append('locations[]', location.id.toString());
+      });
+    }
+
+    const response: AxiosResponse<{ message: string; data: Queue }> = await this.api.post('/queues', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
+    return response.data;
+  }
+
+  async updateQueue(id: number, data: Partial<Queue>): Promise<{ message: string; data: Queue }> {
+    const formData = new FormData();
+
+    if (data.name) {
+      formData.append('name', data.name);
+    }
+
+    if (data.priority) {
+      formData.append('priority', data.priority.toString());
+    }
+
+    if (data.is_active) {
+      formData.append('is_active', data.is_active.toString());
+    }
+    
+    if (data.image) {
+      formData.append('image', data.image);
+    }
+
+    if (data.locations) {
+      data.locations.forEach(location => {
+        formData.append('locations[]', location.id.toString());
+      });
+    }
+
+    formData.append('_method', 'PUT');
+
+    const response: AxiosResponse<{ message: string; data: Queue }> = await this.api.post(`/queues/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
+    return response.data;
+  }
+
+  async deleteQueue(id: number): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await this.api.delete(`/queues/${id}`);
+    return response.data;
+  }
+
+  // Location
+  async getLocations(filters?: LocationFilters, page: number = 1): Promise<PaginatedResponse<Location>> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    params.append('page', page.toString());
+
+    const url = `/locations?${params.toString()}`;
+    const response: AxiosResponse<PaginatedResponse<Location>> = await this.api.get(url);
+    return response.data;
+  }
+
+  async getAllLocations(): Promise<Location[]> {
+    const response: AxiosResponse<{ data: Location[] }> = await this.api.get('/locations?per_page=1000');
+    return response.data.data;
+  }
+
+  async getLocation(id: number): Promise<Location> {
+    const response: AxiosResponse<Location> = await this.api.get(`/locations/${id}`);
+    return response.data;
+  }
+
+  async createLocation(data: CreateLocationData): Promise<{ message: string; data: Location }> {
+    const response: AxiosResponse<{ message: string; data: Location }> = await this.api.post('/locations', data);
+    return response.data;
+  }
+
+  async updateLocation(id: number, data: UpdateLocationData): Promise<{ message: string; data: Location }> {
+    const response: AxiosResponse<{ message: string; data: Location }> = await this.api.put(`/locations/${id}`, data);
+    return response.data;
+  }
+
+  async deleteLocation(id: number): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await this.api.delete(`/locations/${id}`);
+    return response.data;
+  }
+
+  // Desk
+  async getDesks(filters?: DeskFilters, page: number = 1): Promise<PaginatedResponse<Desk>> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    params.append('page', page.toString());
+
+    const url = `/desks?${params.toString()}`;
+    const response: AxiosResponse<PaginatedResponse<Desk>> = await this.api.get(url);
+    return response.data;
+  }
+
+  async getAllDesks(): Promise<Desk[]> {
+    const response: AxiosResponse<{ data: Desk[] }> = await this.api.get('/desks?per_page=1000');
+    return response.data.data;
+  }
+
+  async getDesk(id: number): Promise<Desk> {
+    const response: AxiosResponse<Desk> = await this.api.get(`/desks/${id}`);
+    return response.data;
+  }
+
+  async createDesk(data: Omit<Desk, 'id' | 'created_at' | 'updated_at'>): Promise<{ message: string; data: Desk }> {
+    const response: AxiosResponse<{ message: string; data: Desk }> = await this.api.post('/desks', data);
+    return response.data;
+  }
+
+  async updateDesk(id: number, data: Partial<Desk>): Promise<{ message: string; data: Desk }> {
+    const response: AxiosResponse<{ message: string; data: Desk }> = await this.api.put(`/desks/${id}`, data);
+    return response.data;
+  }
+
+  async deleteDesk(id: number): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await this.api.delete(`/desks/${id}`);
+    return response.data;
+  }
+
+  // Ticket
+  async getTickets(filters?: TicketFilters, page: number = 1): Promise<PaginatedResponse<Ticket>> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    params.append('page', page.toString());
+
+    const url = `/tickets?${params.toString()}`;
+    const response: AxiosResponse<PaginatedResponse<Ticket>> = await this.api.get(url);
+    return response.data;
+  }
+
+  async getTicket(id: number): Promise<Ticket> {
+    const response: AxiosResponse<Ticket> = await this.api.get(`/tickets/${id}`);
+    return response.data;
+  }
+
+  async createTicket(data: Omit<Ticket, 'id' | 'created_at' | 'updated_at'>): Promise<{ message: string; data: Ticket }> {
+    const response: AxiosResponse<{ message: string; data: Ticket }> = await this.api.post('/tickets', data);
+    return response.data;
+  }
+
+  async updateTicket(id: number, data: Partial<Ticket>): Promise<{ message: string; data: Ticket }> {
+    const response: AxiosResponse<{ message: string; data: Ticket }> = await this.api.put(`/tickets/${id}`, data);
+    return response.data;
+  }
+
+  async deleteTicket(id: number): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await this.api.delete(`/tickets/${id}`);
     return response.data;
   }
 }

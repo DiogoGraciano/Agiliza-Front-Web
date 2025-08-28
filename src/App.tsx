@@ -13,6 +13,10 @@ import Categories from './pages/Categories';
 import Types from './pages/Types';
 import EnterprisePage from './pages/Enterprise';
 import Sectors from './pages/Sectors';
+import Queues from './pages/Queues';
+import Locations from './pages/Locations';
+import Desks from './pages/Desks';
+import Tickets from './pages/Tickets';
 import './App.css';
 
 // Componente para rotas protegidas
@@ -114,6 +118,38 @@ const AppContent: React.FC = () => {
           element={
             <ProtectedRoute>
               <EnterprisePage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/queues" 
+          element={
+            <ProtectedRoute>
+              <Queues />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/locations" 
+          element={
+            <ProtectedRoute>
+              <Locations />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/desks" 
+          element={
+            <ProtectedRoute>
+              <Desks />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/tickets" 
+          element={
+            <ProtectedRoute>
+              <Tickets />
             </ProtectedRoute>
           } 
         />

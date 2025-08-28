@@ -20,6 +20,8 @@ export interface CepAddress {
   city: string;
   state: string;
   zip_code: string;
+  latitude?: string;
+  longitude?: string;
 }
 
 class CepService {
@@ -66,6 +68,13 @@ class CepService {
                 neighborhood: viaCepData.bairro,
                 street: viaCepData.logradouro,
                 service: 'viacep',
+                location: {
+                  type: 'Point',
+                  coordinates: {
+                    longitude: viaCepData.longitude || null,
+                    latitude: viaCepData.latitude || null,
+                  },
+                },
               };
             }
           }
@@ -81,6 +90,8 @@ class CepService {
           city: cepData.city || '',
           state: cepData.state || '',
           zip_code: cepData.cep || cep,
+          latitude: cepData.location?.coordinates.latitude ?? undefined,
+          longitude: cepData.location?.coordinates.longitude ?? undefined,
         };
       }
 
