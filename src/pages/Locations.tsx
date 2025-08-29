@@ -8,7 +8,7 @@ import {
   Calendar
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import apiService from '../services/api';
+import { locationService } from '../services';
 import type { Location, LocationFilters } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -82,10 +82,11 @@ const Locations: React.FC = () => {
         filters.zip_code = zipCodeFilter;
       }
 
-      const response = await apiService.getLocations(filters, currentPage);
+      const response = await locationService.getLocations(filters, currentPage);
       setLocations(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
+      console.error('Erro ao carregar localizações:', error);
       toast.error('Erro ao carregar localizações.');
     } finally {
       setIsLoading(false);
@@ -133,7 +134,7 @@ const Locations: React.FC = () => {
     if (!confirm('Tem certeza que deseja excluir esta localização?')) return;
 
     try {
-      await apiService.deleteLocation(location.id);
+              await locationService.deleteLocation(location.id);
       fetchLocations();
       toast.success('Localização excluída com sucesso!');
     } catch (error) {

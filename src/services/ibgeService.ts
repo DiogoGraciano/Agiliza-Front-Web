@@ -30,7 +30,7 @@ export interface CGUMunicipio {
   uf: string;
 }
 
-class LocationService {
+class IBGELocationService {
   private estados: Estado[] = [
     { id: 11, sigla: 'RO', nome: 'Rondônia' },
     { id: 12, sigla: 'AC', nome: 'Acre' },
@@ -179,4 +179,4 @@ class LocationService {
   }
 }
 
-export const locationService = new LocationService();
+export const ibgeLocationService = new IBGELocationService();

@@ -59,7 +59,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         { name: 'Filas', href: '/queues', icon: Clock, badge: null, description: 'Gerencie as filas de atendimento' },
         { name: 'Mesas', href: '/desks', icon: Monitor, badge: null, description: 'Gerencie as mesas de atendimento' },
         { name: 'Tickets', href: '/tickets', icon: Ticket, badge: null, description: 'Gerencie os tickets de atendimento' },
-        { name: 'Layouts', href: '/layouts', icon: LayoutIcon, badge: null, description: 'Gerencie os layouts de atendimento' }
+        { name: 'Displays', href: '/displays', icon: LayoutIcon, badge: null, description: 'Gerencie os displays de atendimento' }
       ]
     },
     { 

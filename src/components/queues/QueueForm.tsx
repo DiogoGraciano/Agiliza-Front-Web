@@ -17,6 +17,7 @@ import SectionHeader from '../ui/SectionHeader';
 import type { Queue, Location } from '../../types';
 import apiService from '../../services/api';
 import LocationSelectionModal from '../selectionModals/LocationSelectionModal';
+import Checkbox from '../ui/Checkbox';
 
 const queueSchema = yup.object({
   name: yup.string().required('Nome é obrigatório').max(255, 'Nome deve ter no máximo 255 caracteres'),
@@ -384,15 +385,12 @@ const QueueForm: React.FC<QueueFormProps> = ({
 
           <div className="space-y-6 mt-4">
             <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="is_active"
+              <Checkbox
                 {...register('is_active')}
-                className="rounded border-gray-300 text-teal-600 focus:ring-blue-500 h-4 w-4"
+                checked={watch('is_active')}
+                onChange={(e) => setValue('is_active', e.target.checked)}
+                label="Fila ativa"
               />
-              <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
-                Fila ativa
-              </label>
             </div>
           </div>
         </div>

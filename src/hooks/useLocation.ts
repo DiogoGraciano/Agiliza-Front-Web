@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { locationService } from '../services/locationService';
-import type { Estado, Cidade } from '../services/locationService';
+import { ibgeLocationService } from '../services/ibgeService';
+import type { Estado, Cidade } from '../services/ibgeService';
 
 export const useLocation = () => {
   const [estados, setEstados] = useState<Estado[]>([]);
@@ -12,7 +12,7 @@ export const useLocation = () => {
   // Carregar estados brasileiros
   useEffect(() => {
     const loadEstados = () => {
-      const estadosData = locationService.getEstados();
+      const estadosData = ibgeLocationService.getEstados();
       setEstados(estadosData);
     };
     loadEstados();
@@ -31,7 +31,7 @@ export const useLocation = () => {
   const loadCidades = async (siglaEstado: string) => {
     setLoadingCidades(true);
     try {
-      const cidadesData = await locationService.getCidades(siglaEstado);
+      const cidadesData = await ibgeLocationService.getCidades(siglaEstado);
       setCidades(cidadesData);
     } catch (error) {
       console.error('Erro ao carregar cidades:', error);
@@ -51,15 +51,15 @@ export const useLocation = () => {
   };
 
   const findEstadoBySigla = (sigla: string): Estado | undefined => {
-    return locationService.getEstadoBySigla(sigla);
+    return ibgeLocationService.getEstadoBySigla(sigla);
   };
 
   const findEstadoByNome = (nome: string): Estado | undefined => {
-    return locationService.getEstadoByNome(nome);
+    return ibgeLocationService.getEstadoByNome(nome);
   };
 
   const findCidadeByName = async (nomeCidade: string, siglaEstado: string): Promise<Cidade | null> => {
-    return locationService.findCidadeByName(nomeCidade, siglaEstado);
+    return ibgeLocationService.findCidadeByName(nomeCidade, siglaEstado);
   };
 
   return {

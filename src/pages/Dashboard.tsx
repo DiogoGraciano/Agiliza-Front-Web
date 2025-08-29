@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Users, FileText, Settings, TrendingUp, Clock, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import apiService from '../services/api';
+import { userService, serviceService, manifestService } from '../services';
 import Card from '../components/ui/Card';
 import { useNavigate } from 'react-router-dom';
 
@@ -49,9 +49,9 @@ const Dashboard: React.FC = () => {
         
         // Buscar estatísticas gerais e estatísticas dos manifestos
         const [users, services, manifestStatistics] = await Promise.all([
-          apiService.getUsers(),
-          apiService.getServices(),
-          apiService.getManifestStatistics(),
+          userService.getUsers(),
+          serviceService.getServices(),
+          manifestService.getManifestStatistics(),
         ]);
 
         setStats({

@@ -13,7 +13,7 @@ import MapLocationPicker from '../ui/MapLocationPicker';
 import QueueSelectionModal from '../selectionModals/QueueSelectionModal';
 import { useCepSearch } from '../../hooks/useCepSearch';
 import { cepService } from '../../services/cepService';
-import apiService from '../../services/api';
+import { apiService } from '../../services/api';
 
 // Schema de validação
 const locationSchema = yup.object({

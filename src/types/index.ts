@@ -168,12 +168,20 @@ export interface Ticket {
   user_id?: number;
   status: 'called' | 'in_progress' | 'completed' | 'cancelled';
   priority?: 'low' | 'normal' | 'high' | 'urgent';
+  in_call?: boolean;
   created_at: string;
   updated_at: string;
   queue?: Queue;
   location?: Location;
   desk?: Desk;
   user?: User;
+}
+
+// Interface para tickets no histórico (com propriedades adicionais)
+export interface TicketHistoryEntry extends Ticket {
+  removed_at?: string;
+  removed_reason?: string;
+  is_current?: boolean;
 }
 
 // Filtros para as novas entidades
@@ -206,6 +214,7 @@ export interface TicketFilters {
   user_id?: number;
   status?: string;
   priority?: string;
+  with_desk?: boolean;
 }
 
 export interface Manifest {
@@ -462,4 +471,165 @@ export interface UpdateCommentData {
 export interface CommentResponse {
   message: string;
   data: ManifestComment;
+}
+
+// Interfaces para Layouts de Tela de Fila
+export interface ScreenLayout {
+  id: number;
+  name: string;
+  template: 'template1' | 'template2' | 'template3' | 'template4';
+  colors: {
+    primary: string;
+    secondary: string;
+    background: string;
+    text: string;
+    accent: string;
+    highlight: string;
+  };
+  images: {
+    logo?: string;
+    background?: string;
+    promotional?: string;
+  };
+  settings: {
+    showLogo: boolean;
+    showBackground: boolean;
+    showPromotional: boolean;
+    autoRefresh: boolean;
+    refreshInterval: number;
+    showCurrentTicket: boolean;
+    showTicketHistory: boolean;
+    showCounterInfo: boolean;
+  };
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateScreenLayoutData {
+  name: string;
+  template: 'template1' | 'template2' | 'template3' | 'template4';
+  colors: {
+    primary: string;
+    secondary: string;
+    background: string;
+    text: string;
+    accent: string;
+    highlight: string;
+  };
+  images: {
+    logo?: string;
+    background?: string;
+    promotional?: string;
+  };
+  settings: {
+    showLogo: boolean;
+    showBackground: boolean;
+    showPromotional: boolean;
+    autoRefresh: boolean;
+    refreshInterval: number;
+    showCurrentTicket: boolean;
+    showTicketHistory: boolean;
+    showCounterInfo: boolean;
+  };
+  is_active?: boolean;
+}
+
+export interface UpdateScreenLayoutData extends Partial<CreateScreenLayoutData> {}
+
+// Interface para Imagens
+export interface ImageAsset {
+  id: number;
+  name: string;
+  filename: string;
+  url: string;
+  type: 'logo' | 'background' | 'promotional' | 'other';
+  size: number;
+  mime_type: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateImageAssetData {
+  name: string;
+  file: File;
+  type: 'logo' | 'background' | 'promotional' | 'other';
+}
+
+export interface UpdateImageAssetData {
+  name?: string;
+  type?: 'logo' | 'background' | 'promotional' | 'other';
+}
+
+// Interfaces para Display (Monitores)
+export interface Display {
+  id: number;
+  name: string;
+  template: string;
+  color_primary: string;
+  color_secondary: string;
+  color_background: string;
+  color_text: string;
+  color_accent: string;
+  color_highlight: string;
+  image_logo?: string;
+  image_background?: string;
+  image_promotional?: string;
+  show_logo: boolean;
+  show_background: boolean;
+  show_promotional: boolean;
+  auto_refresh: boolean;
+  refresh_interval: number;
+  show_current_ticket: boolean;
+  show_ticket_history: boolean;
+  show_counter_info: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateDisplayData {
+  name: string;
+  template: string;
+  color_primary: string;
+  color_secondary: string;
+  color_background: string;
+  color_text: string;
+  color_accent: string;
+  color_highlight: string;
+  image_logo?: File;
+  image_background?: File;
+  image_promotional?: File;
+  show_logo: boolean;
+  show_background: boolean;
+  show_promotional: boolean;
+  auto_refresh: boolean;
+  refresh_interval: number;
+  show_current_ticket: boolean;
+  show_ticket_history: boolean;
+  show_counter_info: boolean;
+  is_active?: boolean;
+}
+
+export interface UpdateDisplayData extends Partial<CreateDisplayData> {}
+
+export interface DisplayFilters {
+  is_active?: boolean;
+  template?: string;
+  name?: string;
+}
+
+// Configuração para upload de imagens de displays
+export const DISPLAY_IMAGE_CONFIG: FileUploadConfig = {
+  maxFiles: 1,
+  maxSizePerFile: 5, // 5MB
+  allowedTypes: [
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'image/gif',
+    'image/svg+xml',
+    'image/webp'
+  ],
+  allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp']
 }

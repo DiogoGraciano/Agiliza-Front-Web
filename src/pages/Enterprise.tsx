@@ -4,7 +4,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Building2, Eye, EyeOff, RefreshCw, Palette } from 'lucide-react';
 import toast from 'react-hot-toast';
-import apiService from '../services/api';
+import { enterpriseService } from '../services';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -52,7 +52,7 @@ const EnterprisePage: React.FC = () => {
   const fetchEnterprise = async () => {
     try {
       setIsLoading(true);
-      const response = await apiService.getEnterprise();
+      const response = await enterpriseService.getEnterprise();
       if (response) {
         reset(response);
       } else {
@@ -80,7 +80,7 @@ const EnterprisePage: React.FC = () => {
   const handleUpdateEnterprise = async (data: any) => {
     try {
       setIsSaving(true);
-      const response = await apiService.updateEnterprise(data);
+      const response = await enterpriseService.updateEnterprise(data);
       toast.success(response.message || 'Configurações da empresa atualizadas com sucesso!');
       // Atualizar os dados do formulário com a resposta do servidor
       if (response.data) {

@@ -17,6 +17,8 @@ import Queues from './pages/Queues';
 import Locations from './pages/Locations';
 import Desks from './pages/Desks';
 import Tickets from './pages/Tickets';
+import Displays from './pages/Displays';
+import DisplayPreview from './pages/DisplayPreview';
 import './App.css';
 
 // Componente para rotas protegidas
@@ -152,6 +154,18 @@ const AppContent: React.FC = () => {
               <Tickets />
             </ProtectedRoute>
           } 
+        />
+        <Route 
+          path="/displays" 
+          element={
+            <ProtectedRoute>
+              <Displays />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/display/:id/preview" 
+          element={<DisplayPreview />} 
         />
         <Route 
           path="/" 

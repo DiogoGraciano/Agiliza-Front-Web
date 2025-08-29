@@ -88,6 +88,7 @@ const Tickets: React.FC = () => {
 
     try {
       setIsLoading(true);
+      // Buscar todos os tickets da localização (sem filtro de status)
       const response = await apiService.getTickets({ location_id: selectedLocation.id, status: 'pending,called' }, 1);
       setTickets(response.data);
       setLastRefresh(new Date());
@@ -125,7 +126,12 @@ const Tickets: React.FC = () => {
   // Função para atualizar status do ticket
   const updateTicketStatus = async (ticketId: number, newStatus: 'called' | 'completed' | 'cancelled') => {
     try {
-      await apiService.updateTicket(ticketId, { status: newStatus });
+      const updateData: any = { status: newStatus };
+      
+      // Sempre remover a flag in_call ao alterar o status
+      updateData.in_call = false;
+      
+      await apiService.updateTicket(ticketId, updateData);
       toast.success(`Status do ticket atualizado para ${getStatusText(newStatus)}`);
       
       // Atualiza a lista de tickets
@@ -144,7 +150,12 @@ const Tickets: React.FC = () => {
     }
 
     try {
-      await apiService.updateTicket(ticket.id, { status: 'called', desk_id: selectedDesk.id });
+      // Atualizar ticket com status 'called', mesa atribuída e flag in_call = true
+      await apiService.updateTicket(ticket.id, { 
+        status: 'called', 
+        desk_id: selectedDesk.id,
+        in_call: true 
+      });
       toast.success(`Ticket ${ticket.number || ticket.id} chamado para a mesa ${selectedDesk.name}`);
       fetchTickets();
     } catch (error) {
@@ -259,6 +270,11 @@ const Tickets: React.FC = () => {
       <span className={`flex items-center ${getStatusColor(ticket.status)}`}>
         {getStatusIcon(ticket.status)}
         {getStatusText(ticket.status)}
+        {ticket.in_call && ticket.status === 'called' && (
+          <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+            EM CHAMADA
+          </span>
+        )}
       </span>
     ),
     created_at: formatDate(ticket.created_at),
@@ -275,13 +291,13 @@ const Tickets: React.FC = () => {
           onClick={() => callTicket(ticket)}
           title="Chamar Ticket"
           className="text-blue-600 hover:text-blue-700"
-          disabled={ticket.status === 'completed' || ticket.status === 'cancelled'}
+          disabled={ticket.in_call || ticket.status === 'completed' || ticket.status === 'cancelled'}
         >
           <Volume2 className="w-4 h-4" />
         </Button>
         
         {/* Botão para marcar como Concluído */}
-        {ticket.status === 'called' && (
+        {ticket.in_call && (
           <Button
             variant="outline"
             size="sm"
@@ -294,7 +310,7 @@ const Tickets: React.FC = () => {
         )}
         
         {/* Botão para marcar como Cancelado */}
-        {ticket.status === 'called' && (
+        {ticket.in_call && (
           <Button
             variant="outline"
             size="sm"
@@ -426,8 +442,17 @@ const Tickets: React.FC = () => {
         <Card className="mt-6">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-500">
-                Atualização automática a cada 15 segundos
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-500">
+                  Atualização automática a cada 15 segundos
+                </div>
+                {/* Indicador de tickets em chamada */}
+                {tickets.some(t => t.in_call === true) && (
+                  <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    <Volume2 className="w-4 h-4" />
+                    <span>Ticket em chamada ativa</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -476,6 +501,8 @@ const Tickets: React.FC = () => {
               <p>• Os tickets são atualizados automaticamente a cada 15 segundos</p>
               <p>• Use o botão "Chamar" para anunciar um ticket no painel</p>
               <p>• Suas seleções são salvas automaticamente para a próxima sessão</p>
+              <p>• <strong>Sistema:</strong> Apenas um ticket pode estar em chamada ativa por vez</p>
+              <p>• <strong>Sistema:</strong> Controle automático de status para evitar conflitos</p>
             </div>
           </div>
         </div>

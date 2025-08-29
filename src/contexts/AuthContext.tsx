@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import toast from 'react-hot-toast';
-import apiService from '../services/api';
-import type { Admin, LoginResponse } from '../types';
+import { authService } from '../services';
+import type { Admin } from '../types';
 
 interface AuthContextType {
   admin: Admin | null;
@@ -39,7 +38,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (token && adminData) {
         try {
           // Tentar carregar perfil atualizado do servidor
-          const profileData = await apiService.getAdminProfile();
+          const profileData = await authService.getAdminProfile();
           setAdmin(profileData);
         } catch (error) {
           // Se falhar, usar dados locais se disponíveis
@@ -54,7 +53,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiService.adminLogin({ email, password });
+      const response = await authService.adminLogin({ email, password });
       localStorage.setItem('auth_token', response.token);
       
       if (response.admin) {
@@ -69,7 +68,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       // Tentar fazer logout no servidor
-      await apiService.adminLogout();
+      await authService.adminLogout();
     } catch (error) {
       // Continuar com logout local mesmo se o servidor falhar
       console.warn('Erro ao fazer logout no servidor:', error);
@@ -82,7 +81,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const updateProfile = async (data: Partial<Admin>) => {
     try {
-      const updatedProfile = await apiService.updateAdminProfile(data);
+      const updatedProfile = await authService.updateAdminProfile(data);
       setAdmin(updatedProfile);
       localStorage.setItem('admin', JSON.stringify(updatedProfile));
     } catch (error) {
