@@ -12,8 +12,12 @@ import DefaultTemplate from '../components/displays/templates/DefaultTemplate';
 
 const DisplayPreview: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const searchParams = new URLSearchParams(window.location.search);
+  const locationId = searchParams.get('location');
   const [display, setDisplay] = useState<Display | null>(null);
   const [currentTicket, setCurrentTicket] = useState<Ticket | null>(null);
+  const [previousTicket, setPreviousTicket] = useState<Ticket | null>(null);
+  const [lastSeenTicket, setLastSeenTicket] = useState<Ticket | null>(null);
   const [ticketHistory, setTicketHistory] = useState<TicketHistoryEntry[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,11 +28,27 @@ const DisplayPreview: React.FC = () => {
     try {
       const historyKey = `ticket_history_${locationId}`;
       const limitedHistory = history.slice(0, 3);
+      
+      console.log('Tentando salvar no localStorage:', {
+        key: historyKey,
+        data: limitedHistory,
+        locationId
+      });
+      
+      // Limpar item anterior primeiro
+      localStorage.removeItem(historyKey);
+      
+      // Salvar novo item
       localStorage.setItem(historyKey, JSON.stringify(limitedHistory));
-      console.log('Histórico salvo no localStorage:', limitedHistory);
-      return true;
+      
+      // Verificar se foi salvo corretamente
+      const savedData = localStorage.getItem(historyKey);
+      if (savedData) {
+        return true;
+      } else {
+        return false;
+      }
     } catch (error) {
-      console.error('Erro ao salvar histórico no localStorage:', error);
       return false;
     }
   }, []);
@@ -36,25 +56,45 @@ const DisplayPreview: React.FC = () => {
   const loadHistoryFromStorage = useCallback((locationId: number): TicketHistoryEntry[] => {
     try {
       const historyKey = `ticket_history_${locationId}`;
+      
       const existingHistory = localStorage.getItem(historyKey);
       
       if (existingHistory) {
         const history: TicketHistoryEntry[] = JSON.parse(existingHistory);
-        console.log('Histórico carregado do localStorage:', history);
         return history;
+      } else {
+        console.log('Nenhum histórico encontrado no localStorage para:', { key: historyKey, locationId });
+        return [];
       }
-      return [];
     } catch (error) {
       console.error('Erro ao carregar histórico do localStorage:', error);
       return [];
     }
   }, []);
 
+  useEffect(() => {
+    if (locationId) {
+      fetchLocation(parseInt(locationId));
+    }
+  }, [locationId]);
+
+  const fetchLocation = async (locationId: number) => {
+    const response = await apiService.getLocation(locationId);
+    setSelectedLocation(response);
+  };
+
   // Função para adicionar ticket ao histórico
-  const addToHistory = useCallback((ticket: Ticket) => {
-    if (!selectedLocation) return;
+  const addToHistory = useCallback(async (ticket: Ticket): Promise<boolean> => {
+    if (!selectedLocation) {
+      return false;
+    }
+
+    if (!ticket || !ticket.id) {
+      return false;
+    }
 
     try {
+      
       const historyEntry: TicketHistoryEntry = {
         ...ticket,
         removed_at: new Date().toISOString(),
@@ -62,20 +102,23 @@ const DisplayPreview: React.FC = () => {
         is_current: false
       };
       
-      setTicketHistory(prevHistory => {
-        const newHistory = [historyEntry, ...prevHistory].slice(0, 3);
-        
-        // Salvar imediatamente no localStorage
-        saveHistoryToStorage(selectedLocation.id, newHistory);
-        
-        return newHistory;
-      });
+      const newHistory = [historyEntry, ...ticketHistory].slice(0, 3);
       
-      console.log('Ticket adicionado ao histórico:', ticket.number);
+      const saved = saveHistoryToStorage(selectedLocation.id, newHistory);
+      
+      if (saved) {
+        setTicketHistory(newHistory);
+        
+        loadHistoryFromStorage(selectedLocation.id);
+        
+        return true;
+      } else {
+        return false;
+      }
     } catch (error) {
-      console.error('Erro ao adicionar ao histórico:', error);
+      return false;
     }
-  }, [selectedLocation, saveHistoryToStorage]);
+  }, [selectedLocation, ticketHistory, saveHistoryToStorage]);
 
   // Função para carregar histórico inicial
   const loadTicketHistory = useCallback(() => {
@@ -105,11 +148,25 @@ const DisplayPreview: React.FC = () => {
         return filteredHistory;
       });
       
-      console.log('Histórico antigo limpo');
+      // Limpar previousTicket se for muito antigo
+      if (previousTicket) {
+        const ticketDate = new Date(previousTicket.created_at);
+        if (ticketDate < sevenDaysAgo) {
+          setPreviousTicket(null);
+        }
+      }
+      
+      // Limpar lastSeenTicket se for muito antigo
+      if (lastSeenTicket) {
+        const ticketDate = new Date(lastSeenTicket.created_at);
+        if (ticketDate < sevenDaysAgo) {
+          setLastSeenTicket(null);
+        }
+      }
+      
     } catch (error) {
-      console.error('Erro ao limpar histórico:', error);
     }
-  }, [selectedLocation, saveHistoryToStorage]);
+  }, [selectedLocation, saveHistoryToStorage, previousTicket, lastSeenTicket]);
 
   // Atualizar hora atual a cada segundo
   useEffect(() => {
@@ -126,16 +183,16 @@ const DisplayPreview: React.FC = () => {
     }
   }, [id]);
 
-  // Buscar localização padrão
-  useEffect(() => {
-    if (display && !selectedLocation) {
-      fetchDefaultLocation();
-    }
-  }, [display, selectedLocation]);
-
   // Carregar histórico quando localização mudar
   useEffect(() => {
     if (selectedLocation) {
+      
+      // Resetar previousTicket e lastSeenTicket ao mudar de localização
+      setPreviousTicket(null);
+      setLastSeenTicket(null);
+      
+      loadHistoryFromStorage(selectedLocation.id);
+      
       loadTicketHistory();
       fetchCurrentTicket();
     }
@@ -171,24 +228,6 @@ const DisplayPreview: React.FC = () => {
     };
   }, [selectedLocation, cleanOldHistory]);
 
-  const fetchDefaultLocation = async () => {
-    try {
-      const locationsResponse = await apiService.getLocations();
-      console.log('Resposta das localizações:', locationsResponse);
-      
-      // Verificar se os dados estão em response.data.data ou response.data
-      const locations = locationsResponse.data?.data || locationsResponse.data;
-      
-      if (locations && locations.length > 0) {
-        const firstLocation = locations[0];
-        setSelectedLocation(firstLocation);
-        console.log('Localização selecionada:', firstLocation);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar localização padrão:', error);
-    }
-  };
-
   const fetchDisplayData = async () => {
     try {
       setIsLoading(true);
@@ -206,46 +245,61 @@ const DisplayPreview: React.FC = () => {
     
     try {
       const response = await apiService.getCurrentTicket(selectedLocation.id);
-      console.log('Resposta da API:', response);
       
       // A API retorna os dados em response.data.data
-      if (response.data && response.data.data) {
-        const newCurrentTicket = response.data.data;
-        console.log('Ticket atual da API:', newCurrentTicket);
-        console.log('Ticket anterior:', currentTicket);
+      if (response.data) {
+        const newCurrentTicket = response.data;
         
         // Verificar se a senha mudou
         if (!currentTicket || currentTicket.id !== newCurrentTicket.id) {
-          console.log('Ticket mudou! Anterior ID:', currentTicket?.id, 'Novo ID:', newCurrentTicket.id);
           
-          // Se havia um ticket anterior, adicionar ao histórico
-          if (currentTicket) {
-            addToHistory(currentTicket);
+          // Se havia um ticket atual, salvá-lo como anterior ANTES de mudar
+          if (currentTicket && currentTicket.id) {
+            
+            await addToHistory(currentTicket);
+            
+            // Agora salvar como previousTicket
+            setPreviousTicket(currentTicket);
+          } else {
+            // Primeira execução ou não há ticket atual
+            // Usar o lastSeenTicket se disponível
+            if (lastSeenTicket && lastSeenTicket.id !== newCurrentTicket.id) {
+              setPreviousTicket(lastSeenTicket);
+            }
           }
           
+          // Atualizar lastSeenTicket com o novo ticket
+          setLastSeenTicket(newCurrentTicket);
+          
+          // Agora definir o novo ticket atual
           setCurrentTicket(newCurrentTicket);
-          console.log('Nova senha em chamada:', newCurrentTicket.number);
-        } else {
-          console.log('Mesmo ticket, não alterando');
-        }
+        } 
       } else {
-        console.log('Nenhum ticket atual encontrado');
         
         // Se não há ticket atual mas havia um antes
-        if (currentTicket) {
-          addToHistory(currentTicket);
+        if (currentTicket && currentTicket.id) {
+          
+          await addToHistory(currentTicket);
+
+          setPreviousTicket(currentTicket);
+          
           setCurrentTicket(null);
-          console.log('Senha removida da chamada');
+        } else {
+          setCurrentTicket(null);
         }
       }
     } catch (error) {
-      console.error('Erro ao atualizar senha corrente:', error);
-      
       // Se houve erro e havia um ticket, manter no histórico
-      if (currentTicket) {
-        addToHistory(currentTicket);
+      if (currentTicket && currentTicket.id) {
+        
+        await addToHistory(currentTicket);
+        
+        // Agora salvar como previousTicket
+        setPreviousTicket(currentTicket);
+        
         setCurrentTicket(null);
-        console.log('Erro na API - senha removida da chamada');
+      } else {
+        setCurrentTicket(null);
       }
     }
   };
@@ -286,6 +340,8 @@ const DisplayPreview: React.FC = () => {
   const templateData = {
     display,
     currentTicket,
+    previousTicket,
+    lastSeenTicket,
     ticketHistory,
     currentTime
   };
