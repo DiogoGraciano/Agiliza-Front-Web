@@ -8,7 +8,10 @@ import {
   Settings, 
   Plus, 
   X,
-  RefreshCw
+  ChevronUp,
+  ChevronDown,
+  ChevronRight,
+  GripVertical
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../ui/Button';
@@ -16,8 +19,8 @@ import Input from '../ui/Input';
 import SectionHeader from '../ui/SectionHeader';
 import Checkbox from '../ui/Checkbox';
 import FileUpload from '../ui/FileUpload';
-import type { Display, CreateDisplayData, UpdateDisplayData } from '../../types';
-import { DISPLAY_IMAGE_CONFIG } from '../../types';
+import type { Display, CreateDisplayData, UpdateDisplayData, DisplayCarouselImage } from '../../types';
+import { DISPLAY_IMAGE_CONFIG, DISPLAY_CAROUSEL_CONFIG } from '../../types';
 import Select from '../ui/Select';
 import { apiService } from '../../services/api';
 
@@ -30,14 +33,15 @@ const displaySchema = yup.object({
   color_text: yup.string().required('Cor do texto é obrigatória').trim(),
   color_accent: yup.string().required('Cor de destaque é obrigatória').trim(),
   color_highlight: yup.string().required('Cor de realce é obrigatória').trim(),
+  desk_name: yup.string().optional().max(255, 'Nome do guichê deve ter no máximo 255 caracteres').trim(),
   show_logo: yup.boolean().default(true),
-  show_background: yup.boolean().default(true),
-  show_promotional: yup.boolean().default(true),
-  auto_refresh: yup.boolean().default(true),
-  refresh_interval: yup.number().optional().min(15, 'Intervalo mínimo é 15 segundos').max(200, 'Intervalo máximo é 200 segundos'),
-  show_current_ticket: yup.boolean().default(true),
+  show_carrosel: yup.boolean().default(true),
+  show_location_name: yup.boolean().default(true),
+  show_desk_name: yup.boolean().default(true),
   show_ticket_history: yup.boolean().default(true),
-  show_counter_info: yup.boolean().default(true),
+  show_queue_name: yup.boolean().default(true),
+  show_date: yup.boolean().default(true),
+  show_time: yup.boolean().default(true),
   is_active: yup.boolean().default(true),
 });
 
@@ -59,8 +63,10 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
   
   // Estados para imagens
   const [imageLogo, setImageLogo] = useState<File | null>(null);
-  const [imageBackground, setImageBackground] = useState<File | null>(null);
-  const [imagePromotional, setImagePromotional] = useState<File | null>(null);
+  const [carouselFiles, setCarouselFiles] = useState<any[]>([]);
+  
+  // Estado para imagens existentes do carrossel (para edição)
+  const [existingCarouselImages, setExistingCarouselImages] = useState<DisplayCarouselImage[]>([]);
 
   // Templates disponíveis
   const templates = [
@@ -76,7 +82,6 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
     formState: { errors },
     setValue,
     setError,
-    clearErrors,
     watch,
   } = useForm({
     resolver: yupResolver(displaySchema),
@@ -90,14 +95,15 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
       color_text: display.color_text,
       color_accent: display.color_accent,
       color_highlight: display.color_highlight,
+      desk_name: display.desk_name,
       show_logo: display.show_logo,
-      show_background: display.show_background,
-      show_promotional: display.show_promotional,
-      auto_refresh: display.auto_refresh,
-      refresh_interval: display.refresh_interval,
-      show_current_ticket: display.show_current_ticket,
+      show_carrosel: display.show_carrosel,
+      show_location_name: display.show_location_name,
+      show_desk_name: display.show_desk_name,
       show_ticket_history: display.show_ticket_history,
-      show_counter_info: display.show_counter_info,
+      show_queue_name: display.show_queue_name,
+      show_date: display.show_date,
+      show_time: display.show_time,
       is_active: display.is_active,
     } : {
       name: '',
@@ -109,13 +115,13 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
       color_accent: '#28a745',
       color_highlight: '#ffc107',
       show_logo: true,
-      show_background: true,
-      show_promotional: true,
-      auto_refresh: true,
-      refresh_interval: 30,
-      show_current_ticket: true,
+      show_carrosel: true,
+      show_location_name: true,
+      show_desk_name: true,
       show_ticket_history: true,
-      show_counter_info: true,
+      show_queue_name: true,
+      show_date: true,
+      show_time: true,
       is_active: true,
     }
   });
@@ -125,12 +131,13 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
   const watchedTemplate = watch('template');
   const watchedColors = watch(['color_primary', 'color_secondary', 'color_background', 'color_text', 'color_accent', 'color_highlight']);
   const watchedShowLogo = watch('show_logo');
-  const watchedShowBackground = watch('show_background');
-  const watchedShowPromotional = watch('show_promotional');
-  const watchedAutoRefresh = watch('auto_refresh');
-  const watchedShowCurrentTicket = watch('show_current_ticket');
+  const watchedShowCarrosel = watch('show_carrosel');
+  const watchedShowLocationName = watch('show_location_name');
+  const watchedShowDeskName = watch('show_desk_name');
   const watchedShowTicketHistory = watch('show_ticket_history');
-  const watchedShowCounterInfo = watch('show_counter_info');
+  const watchedShowQueueName = watch('show_queue_name');
+  const watchedShowDate = watch('show_date');
+  const watchedShowTime = watch('show_time');
   const watchedIsActive = watch('is_active');
 
   // Calcular seções completas
@@ -144,10 +151,14 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
     completedSections.add('colors');
   }
   
-  if (typeof watchedShowLogo === 'boolean' && typeof watchedShowBackground === 'boolean' && 
-      typeof watchedShowPromotional === 'boolean' && typeof watchedAutoRefresh === 'boolean' && 
-      typeof watchedShowCurrentTicket === 'boolean' && typeof watchedShowTicketHistory === 'boolean' && 
-      typeof watchedShowCounterInfo === 'boolean' && typeof watchedIsActive === 'boolean') {
+  // Seção de imagens sempre considerada completa (opcional)
+  completedSections.add('images');
+  
+  if (typeof watchedShowLogo === 'boolean' && typeof watchedShowCarrosel === 'boolean' && 
+      typeof watchedShowLocationName === 'boolean' && typeof watchedShowDeskName === 'boolean' && 
+      typeof watchedShowTicketHistory === 'boolean' && typeof watchedShowQueueName === 'boolean' && 
+      typeof watchedShowDate === 'boolean' && typeof watchedShowTime === 'boolean' && 
+      typeof watchedIsActive === 'boolean') {
     completedSections.add('settings');
   }
 
@@ -156,23 +167,18 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
     const hasName = watchedName && watchedName.trim();
     const hasTemplate = watchedTemplate;
     const hasColors = watchedColors.every(color => color && color.trim() && color.length === 7);
-    const refreshInterval = watch('refresh_interval');
-    const hasRefreshInterval = !watchedAutoRefresh || (watchedAutoRefresh && refreshInterval && refreshInterval >= 15 && refreshInterval <= 200);
     
-    const isValid = hasName && hasTemplate && hasColors && hasRefreshInterval;
+    const isValid = hasName && hasTemplate && hasColors;
     
     console.log('Validação do formulário:', {
       hasName,
       hasTemplate,
       hasColors,
-      hasRefreshInterval,
-      watchedAutoRefresh,
-      refreshInterval,
       isValid
     });
     
     return isValid;
-  }, [watchedName, watchedTemplate, watchedColors, watchedAutoRefresh, watch('refresh_interval')]);
+  }, [watchedName, watchedTemplate, watchedColors]);
 
 
 
@@ -187,28 +193,109 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
       setValue('color_text', display.color_text);
       setValue('color_accent', display.color_accent);
       setValue('color_highlight', display.color_highlight);
+      setValue('desk_name', display.desk_name);
       setValue('show_logo', display.show_logo);
-      setValue('show_background', display.show_background);
-      setValue('show_promotional', display.show_promotional);
-      setValue('auto_refresh', display.auto_refresh);
-      setValue('refresh_interval', display.refresh_interval);
-      setValue('show_current_ticket', display.show_current_ticket);
+      setValue('show_carrosel', display.show_carrosel);
+      setValue('show_location_name', display.show_location_name);
+      setValue('show_desk_name', display.show_desk_name);
       setValue('show_ticket_history', display.show_ticket_history);
-      setValue('show_counter_info', display.show_counter_info);
+      setValue('show_queue_name', display.show_queue_name);
+      setValue('show_date', display.show_date);
+      setValue('show_time', display.show_time);
       setValue('is_active', display.is_active);
+      
+      // Carregar imagens existentes do carrossel
+      if (display.carousel_images) {
+        setExistingCarouselImages([...display.carousel_images].sort((a, b) => a.order - b.order));
+      }
     }
   }, [display, isEditing, setValue]);
 
-  // Limpar refresh_interval quando auto_refresh for desativado
-  useEffect(() => {
-    const autoRefresh = watch('auto_refresh');
-    if (!autoRefresh) {
-      setValue('refresh_interval', undefined);
-      clearErrors('refresh_interval');
-    } else if (autoRefresh && !watch('refresh_interval')) {
-      setValue('refresh_interval', 30);
-    }
-  }, [watch('auto_refresh'), watch('refresh_interval'), setValue, clearErrors]);
+  // Funções para reordenação das imagens existentes
+  const moveImageUp = (index: number) => {
+    if (index === 0) return;
+    
+    const newImages = [...existingCarouselImages];
+    const temp = newImages[index];
+    newImages[index] = newImages[index - 1];
+    newImages[index - 1] = temp;
+    
+    // Atualizar a ordem
+    newImages.forEach((image, idx) => {
+      image.order = idx + 1;
+    });
+    
+    setExistingCarouselImages(newImages);
+  };
+
+  const moveImageDown = (index: number) => {
+    if (index === existingCarouselImages.length - 1) return;
+    
+    const newImages = [...existingCarouselImages];
+    const temp = newImages[index];
+    newImages[index] = newImages[index + 1];
+    newImages[index + 1] = temp;
+    
+    // Atualizar a ordem
+    newImages.forEach((image, idx) => {
+      image.order = idx + 1;
+    });
+    
+    setExistingCarouselImages(newImages);
+  };
+
+  const removeExistingImage = (index: number) => {
+    const newImages = existingCarouselImages.filter((_, idx) => idx !== index);
+    // Reordenar as imagens restantes
+    newImages.forEach((image, idx) => {
+      image.order = idx + 1;
+    });
+    setExistingCarouselImages(newImages);
+  };
+
+  // Funções para drag and drop
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('text/plain', index.toString());
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.currentTarget.classList.add('border-blue-300', 'bg-blue-50');
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('border-blue-300', 'bg-blue-50');
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-blue-300', 'bg-blue-50');
+    
+    const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+    
+    if (dragIndex === dropIndex) return;
+    
+    const newImages = [...existingCarouselImages];
+    const draggedImage = newImages[dragIndex];
+    
+    // Remover o item arrastado
+    newImages.splice(dragIndex, 1);
+    
+    // Inserir na nova posição
+    newImages.splice(dropIndex, 0, draggedImage);
+    
+    // Atualizar a ordem
+    newImages.forEach((image, idx) => {
+      image.order = idx + 1;
+    });
+    
+    setExistingCarouselImages(newImages);
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('opacity-50');
+  };
 
   const handleCreateDisplay = async (data: any) => {
     try {
@@ -224,18 +311,21 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
         color_text: data.color_text,
         color_accent: data.color_accent,
         color_highlight: data.color_highlight,
+        desk_name: data.desk_name,
         image_logo: imageLogo || undefined,
-        image_background: imageBackground || undefined,
-        image_promotional: imagePromotional || undefined,
         show_logo: data.show_logo,
-        show_background: data.show_background,
-        show_promotional: data.show_promotional,
-        auto_refresh: data.auto_refresh,
-        refresh_interval: data.refresh_interval || 30,
-        show_current_ticket: data.show_current_ticket,
+        show_carrosel: data.show_carrosel,
+        show_location_name: data.show_location_name,
+        show_desk_name: data.show_desk_name,
         show_ticket_history: data.show_ticket_history,
-        show_counter_info: data.show_counter_info,
-        is_active: data.is_active
+        show_queue_name: data.show_queue_name,
+        show_date: data.show_date,
+        show_time: data.show_time,
+        is_active: data.is_active,
+        carousel_images: carouselFiles.length > 0 ? carouselFiles.map((file, index) => ({
+          file: file.file,
+          order: index + 1
+        })) : undefined
       };
 
       const response = await apiService.createDisplay(createData);
@@ -245,8 +335,7 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
       // Limpar formulário e imagens
       reset();
       setImageLogo(null);
-      setImageBackground(null);
-      setImagePromotional(null);
+      setCarouselFiles([]);
       
       // Chamar callback de sucesso se fornecido
       if (onSubmit) {
@@ -281,19 +370,37 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
         color_text: data.color_text,
         color_accent: data.color_accent,
         color_highlight: data.color_highlight,
+        desk_name: data.desk_name,
         image_logo: imageLogo || undefined,
-        image_background: imageBackground || undefined,
-        image_promotional: imagePromotional || undefined,
         show_logo: data.show_logo,
-        show_background: data.show_background,
-        show_promotional: data.show_promotional,
-        auto_refresh: data.auto_refresh,
-        refresh_interval: data.refresh_interval || 30,
-        show_current_ticket: data.show_current_ticket,
+        show_carrosel: data.show_carrosel,
+        show_location_name: data.show_location_name,
+        show_desk_name: data.show_desk_name,
         show_ticket_history: data.show_ticket_history,
-        show_counter_info: data.show_counter_info,
-        is_active: data.is_active
+        show_queue_name: data.show_queue_name,
+        show_date: data.show_date,
+        show_time: data.show_time,
+        is_active: data.is_active,
+        carousel_images: carouselFiles.length > 0 ? carouselFiles.map((file, index) => ({
+          file: file.file,
+          order: index + 1
+        })) : undefined
       };
+
+      // Se há imagens existentes reordenadas, incluí-las nos dados
+      if (existingCarouselImages.length > 0) {
+        const existingImagesData = existingCarouselImages.map(image => ({
+          id: image.id,
+          file: image.path,
+          order: image.order
+        }));
+        
+        if (updateData.carousel_images) {
+          updateData.carousel_images = [...existingImagesData, ...updateData.carousel_images];
+        } else {
+          updateData.carousel_images = existingImagesData;
+        }
+      }
 
       const response = await apiService.updateDisplay(display.id, updateData);
       
@@ -352,6 +459,82 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
     />
   );
 
+  // Componente para renderizar imagem do carrossel com controles de reordenação
+  const renderCarouselImage = (image: DisplayCarouselImage, index: number) => (
+    <div 
+      key={image.id} 
+      draggable
+      onDragStart={(e) => handleDragStart(e, index)}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={(e) => handleDrop(e, index)}
+      onDragEnd={handleDragEnd}
+      className="relative group bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-all duration-200 cursor-move"
+    >
+      <div className="flex items-center space-x-3">
+        {/* Ícone de arrastar */}
+        <div className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors">
+          <GripVertical size={16} />
+        </div>
+        
+        {/* Imagem */}
+        <div className="flex-shrink-0">
+          <img 
+            src={image.url || image.path} 
+            alt={`Carrossel ${index + 1}`} 
+            className="w-16 h-12 object-cover border rounded"
+          />
+        </div>
+        
+        {/* Informações da imagem */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900 truncate">{image.name}</p>
+          <p className="text-xs text-gray-500">Ordem: {image.order}</p>
+        </div>
+        
+        {/* Controles de reordenação */}
+        <div className="flex-shrink-0 flex flex-col space-y-1">
+          <button
+            type="button"
+            onClick={() => moveImageUp(index)}
+            disabled={index === 0}
+            className={`p-1 rounded transition-colors ${
+              index === 0 
+                ? 'text-gray-300 cursor-not-allowed' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+            title="Mover para cima"
+          >
+            <ChevronUp size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => moveImageDown(index)}
+            disabled={index === existingCarouselImages.length - 1}
+            className={`p-1 rounded transition-colors ${
+              index === existingCarouselImages.length - 1 
+                ? 'text-gray-300 cursor-not-allowed' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+            title="Mover para baixo"
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
+        
+        {/* Botão remover */}
+        <button
+          type="button"
+          onClick={() => removeExistingImage(index)}
+          className="flex-shrink-0 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+          title="Remover imagem"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="mx-auto">
       <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
@@ -383,6 +566,18 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
                >
                </Select>
               <p className="text-xs text-gray-500">Layout visual do display</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Input
+                label="Nome Personalizado do Guichê"
+                placeholder="Ex: Atendimento Principal"
+                value={watch('desk_name') || ''}
+                onChange={(e) => setValue('desk_name', e.target.value)}
+                className="transition-all duration-200 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 hover:border-gray-400"
+                onFocus={() => setActiveSection('basic')}
+              />
+              <p className="text-xs text-gray-500">Nome personalizado para exibição no guichê (opcional)</p>
             </div>
           </div>
         </div>
@@ -516,8 +711,8 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
 
         {/* Seção de Imagens */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+            <div className="space-y-2" onClick={() => setActiveSection('images')}>
               <FileUpload
                 onFilesChange={(files) => setImageLogo(files[0]?.file || null)}
                 config={DISPLAY_IMAGE_CONFIG}
@@ -536,40 +731,51 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
               )}
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-2" onClick={() => setActiveSection('images')}>
               <FileUpload
-                onFilesChange={(files) => setImageBackground(files[0]?.file || null)}
-                config={DISPLAY_IMAGE_CONFIG}
-                placeholder="Selecionar fundo..."
-                title="Fundo (opcional)"
-                subtitle="Fundo do display"
+                onFilesChange={(files) => setCarouselFiles(files)}
+                config={DISPLAY_CAROUSEL_CONFIG}
+                placeholder="Selecionar imagens do carrossel..."
+                title="Imagens do Carrossel"
+                subtitle="Imagens que serão exibidas no carrossel"
               />
-              {display?.image_background && !imageBackground && (
+              {display?.carousel_images && display.carousel_images.length > 0 && carouselFiles.length === 0 && (
                 <div className="mt-2">
-                  <img 
-                    src={display.image_background} 
-                    alt="Fundo atual" 
-                    className="w-20 h-20 object-contain border rounded"
-                  />
-                </div>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <FileUpload
-                onFilesChange={(files) => setImagePromotional(files[0]?.file || null)}
-                config={DISPLAY_IMAGE_CONFIG}
-                placeholder="Selecionar promocional..."
-                title="Promocional (opcional)"
-                subtitle="Promocional do display"
-              />
-              {display?.image_promotional && !imagePromotional && (
-                <div className="mt-2">
-                  <img 
-                    src={display.image_promotional} 
-                    alt="Promocional atual" 
-                    className="w-20 h-20 object-contain border rounded"
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-gray-600">Imagens atuais do carrossel (arraste para reordenar):</p>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500">
+                        {existingCarouselImages.length} imagem{existingCarouselImages.length !== 1 ? 'ns' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {existingCarouselImages.map((image, index) => renderCarouselImage(image, index))}
+                  </div>
+                  {existingCarouselImages.length === 0 && (
+                    <p className="text-sm text-gray-500 italic">Nenhuma imagem no carrossel</p>
+                  )}
+                  
+                  {/* Preview da ordem */}
+                  {existingCarouselImages.length > 1 && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-600 mb-2">Preview da ordem:</p>
+                      <div className="flex items-center space-x-1">
+                        {existingCarouselImages.map((image, index) => (
+                          <div key={image.id} className="flex items-center">
+                            <img 
+                              src={image.url || image.path} 
+                              alt={`Preview ${index + 1}`} 
+                              className="w-8 h-6 object-cover border rounded"
+                            />
+                            {index < existingCarouselImages.length - 1 && (
+                              <ChevronRight size={12} className="text-gray-400 mx-1" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -591,47 +797,16 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <Checkbox
-                  checked={watch('show_background') || false}
-                  label="Exibir Imagem de Fundo"
-                  onChange={(e) => setValue('show_background', e.target.checked)}
+                  checked={watch('show_carrosel') || false}
+                  label="Exibir Carrossel"
+                  onChange={(e) => setValue('show_carrosel', e.target.checked)}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <Checkbox
-                  checked={watch('show_promotional') || false}
-                  label="Exibir Imagem Promocional"
-                  onChange={(e) => setValue('show_promotional', e.target.checked)}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Checkbox
-                  checked={watch('auto_refresh') || false}
-                  label="Atualização Automática"
-                  onChange={(e) => setValue('auto_refresh', e.target.checked)}
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Checkbox
-                  checked={watch('show_current_ticket') || false}
-                  label="Exibir Ticket Atual"
-                  onChange={(e) => setValue('show_current_ticket', e.target.checked)}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Checkbox
-                  checked={watch('show_ticket_history') || false}
-                  label="Exibir Histórico"
-                  onChange={(e) => setValue('show_ticket_history', e.target.checked)}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Checkbox
-                  checked={watch('show_counter_info') || false}
-                  label="Exibir Info do Contador"
-                  onChange={(e) => setValue('show_counter_info', e.target.checked)}
+                  checked={watch('show_location_name') || false}
+                  label="Exibir Nome da Localização"
+                  onChange={(e) => setValue('show_location_name', e.target.checked)}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -641,36 +816,46 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
                   onChange={(e) => setValue('is_active', e.target.checked)}
                 />
               </div>
+              <div className="flex items-center justify-between">
+                <Checkbox
+                  checked={watch('show_ticket_history') || false}
+                  label="Exibir Histórico"
+                  onChange={(e) => setValue('show_ticket_history', e.target.checked)}
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Checkbox
+                  checked={watch('show_desk_name') || false}
+                  label="Exibir Nome do Guichê"
+                  onChange={(e) => setValue('show_desk_name', e.target.checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Checkbox
+                  checked={watch('show_queue_name') || false}
+                  label="Exibir Nome da Fila"
+                  onChange={(e) => setValue('show_queue_name', e.target.checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Checkbox
+                  checked={watch('show_date') || false}
+                  label="Exibir Data"
+                  onChange={(e) => setValue('show_date', e.target.checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Checkbox
+                  checked={watch('show_time') || false}
+                  label="Exibir Hora"
+                  onChange={(e) => setValue('show_time', e.target.checked)}
+                />
+              </div>
             </div>
           </div>
-
-          {watch('auto_refresh') && (
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center space-x-2 mb-3">
-                <RefreshCw className="h-5 w-5 text-blue-600" />
-                <h4 className="text-sm font-medium text-gray-900">Intervalo de Atualização</h4>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <Input
-                    type="number"
-                    min="15"
-                    max="200"
-                    label="Intervalo (segundos)"
-                    error={errors.refresh_interval?.message?.toString()}
-                    value={watch('refresh_interval') || 30}
-                    onChange={(e) => setValue('refresh_interval', parseInt(e.target.value) || 30)}
-                    className="w-32"
-                  />
-                </div>
-                <div className="text-sm text-gray-500">
-                  Mínimo: 15s, Máximo: 200s
-                </div>
-              </div>
-            </div>
-          )}
-          
-
         </div>
 
         {/* Botões de ação */}
@@ -688,7 +873,7 @@ const DisplayForm: React.FC<DisplayFormProps> = ({
                 </span>
               </div>
               <div className="text-sm text-gray-500">
-                {completedSections.size} de 3 seções completas
+                {completedSections.size} de 4 seções completas
               </div>
             </div>
 

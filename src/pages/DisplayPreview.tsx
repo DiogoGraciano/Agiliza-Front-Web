@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { 
+import {
   Monitor
 } from 'lucide-react';
 import apiService from '../services/api';
@@ -16,159 +16,113 @@ const DisplayPreview: React.FC = () => {
   const locationId = searchParams.get('location');
   const [display, setDisplay] = useState<Display | null>(null);
   const [currentTicket, setCurrentTicket] = useState<Ticket | null>(null);
-  const [previousTicket, setPreviousTicket] = useState<Ticket | null>(null);
-  const [lastSeenTicket, setLastSeenTicket] = useState<Ticket | null>(null);
   const [ticketHistory, setTicketHistory] = useState<TicketHistoryEntry[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Funções para localStorage com tratamento de erro
-  const saveHistoryToStorage = useCallback((locationId: number, history: TicketHistoryEntry[]) => {
-    try {
-      const historyKey = `ticket_history_${locationId}`;
-      const limitedHistory = history.slice(0, 3);
-      
-      console.log('Tentando salvar no localStorage:', {
-        key: historyKey,
-        data: limitedHistory,
-        locationId
-      });
-      
-      // Limpar item anterior primeiro
-      localStorage.removeItem(historyKey);
-      
-      // Salvar novo item
-      localStorage.setItem(historyKey, JSON.stringify(limitedHistory));
-      
-      // Verificar se foi salvo corretamente
-      const savedData = localStorage.getItem(historyKey);
-      if (savedData) {
-        return true;
-      } else {
-        return false;
-      }
-    } catch (error) {
-      return false;
-    }
-  }, []);
+  const MAX_HISTORY_SIZE = 4;
+  const HISTORY_STORAGE_KEY = `ticket_history_${locationId}`;
 
-  const loadHistoryFromStorage = useCallback((locationId: number): TicketHistoryEntry[] => {
+  // Função para carregar histórico do localStorage
+  const loadTicketHistory = useCallback(() => {
     try {
-      const historyKey = `ticket_history_${locationId}`;
-      
-      const existingHistory = localStorage.getItem(historyKey);
-      
-      if (existingHistory) {
-        const history: TicketHistoryEntry[] = JSON.parse(existingHistory);
-        return history;
-      } else {
-        console.log('Nenhum histórico encontrado no localStorage para:', { key: historyKey, locationId });
-        return [];
+      const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
+      if (storedHistory) {
+        const parsedHistory = JSON.parse(storedHistory) as TicketHistoryEntry[];
+        setTicketHistory(parsedHistory);
       }
     } catch (error) {
       console.error('Erro ao carregar histórico do localStorage:', error);
-      return [];
+      setTicketHistory([]);
     }
-  }, []);
+  }, [HISTORY_STORAGE_KEY]);
 
-  useEffect(() => {
-    if (locationId) {
-      fetchLocation(parseInt(locationId));
+  // Função para salvar histórico no localStorage
+  const saveTicketHistory = useCallback((history: TicketHistoryEntry[]) => {
+    try {
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+    } catch (error) {
+      console.error('Erro ao salvar histórico no localStorage:', error);
     }
-  }, [locationId]);
-
-  const fetchLocation = async (locationId: number) => {
-    const response = await apiService.getLocation(locationId);
-    setSelectedLocation(response);
-  };
+  }, [HISTORY_STORAGE_KEY]);
 
   // Função para adicionar ticket ao histórico
-  const addToHistory = useCallback(async (ticket: Ticket): Promise<boolean> => {
-    if (!selectedLocation) {
-      return false;
-    }
+  const addTicketToHistory = useCallback((ticket: Ticket) => {
+    if (!ticket) return;
 
-    if (!ticket || !ticket.id) {
-      return false;
-    }
-
-    try {
+    setTicketHistory(prevHistory => {
+      // Verifica se o ticket já existe no histórico
+      const ticketExists = prevHistory.some(historyTicket => historyTicket.id === ticket.id);
       
+      if (ticketExists) {
+        return prevHistory; // Não adiciona se já existe
+      }
+
+      // Cria uma nova entrada no histórico
       const historyEntry: TicketHistoryEntry = {
         ...ticket,
         removed_at: new Date().toISOString(),
-        removed_reason: 'chamada_finalizada',
         is_current: false
       };
-      
-      const newHistory = [historyEntry, ...ticketHistory].slice(0, 3);
-      
-      const saved = saveHistoryToStorage(selectedLocation.id, newHistory);
-      
-      if (saved) {
-        setTicketHistory(newHistory);
-        
-        loadHistoryFromStorage(selectedLocation.id);
-        
-        return true;
-      } else {
-        return false;
-      }
-    } catch (error) {
-      return false;
+
+      // Adiciona o novo ticket no início do array
+      const newHistory = [historyEntry, ...prevHistory];
+
+      // Limita o tamanho do histórico
+      const limitedHistory = newHistory.slice(0, MAX_HISTORY_SIZE);
+
+      // Salva no localStorage
+      saveTicketHistory(limitedHistory);
+
+      return limitedHistory;
+    });
+  }, [saveTicketHistory]);
+
+  // Carrega o histórico quando a localização muda
+  useEffect(() => {
+    if (locationId) {
+      loadTicketHistory();
     }
-  }, [selectedLocation, ticketHistory, saveHistoryToStorage]);
+  }, [locationId, loadTicketHistory]);
 
-  // Função para carregar histórico inicial
-  const loadTicketHistory = useCallback(() => {
-    if (!selectedLocation) return;
-    
-    const history = loadHistoryFromStorage(selectedLocation.id);
-    setTicketHistory(history);
-  }, [selectedLocation, loadHistoryFromStorage]);
-
-  // Função para limpar histórico antigo
-  const cleanOldHistory = useCallback(() => {
-    if (!selectedLocation) return;
-    
-    try {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
-      setTicketHistory(prevHistory => {
-        const filteredHistory = prevHistory.filter(entry => {
-          const entryDate = new Date(entry.removed_at || entry.created_at);
-          return entryDate > sevenDaysAgo;
-        });
-        
-        // Salvar histórico filtrado
-        saveHistoryToStorage(selectedLocation.id, filteredHistory);
-        
-        return filteredHistory;
-      });
-      
-      // Limpar previousTicket se for muito antigo
-      if (previousTicket) {
-        const ticketDate = new Date(previousTicket.created_at);
-        if (ticketDate < sevenDaysAgo) {
-          setPreviousTicket(null);
+  useEffect(() => {
+    if (locationId) {
+      const fetchLocation = async () => {
+        try {
+          const response = await apiService.getLocation(parseInt(locationId));
+          setSelectedLocation(response);
+        } catch (error) {
+          console.error('Erro ao carregar localização:', error);
         }
-      }
-      
-      // Limpar lastSeenTicket se for muito antigo
-      if (lastSeenTicket) {
-        const ticketDate = new Date(lastSeenTicket.created_at);
-        if (ticketDate < sevenDaysAgo) {
-          setLastSeenTicket(null);
-        }
-      }
-      
-    } catch (error) {
+      };
+      fetchLocation();
     }
-  }, [selectedLocation, saveHistoryToStorage, previousTicket, lastSeenTicket]);
+  }, [locationId]);
 
-  // Atualizar hora atual a cada segundo
+  useEffect(() => {
+    if (id) {
+      const fetchDisplayData = async () => {
+        try {
+          setIsLoading(true);
+          const displayResponse = await apiService.getDisplay(parseInt(id!));
+          setDisplay(displayResponse);
+        } catch (error) {
+          console.error('Erro ao carregar dados do display:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchDisplayData();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (selectedLocation) {
+      fetchCurrentTicket();
+    }
+  }, [selectedLocation]);
+
   useEffect(() => {
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
@@ -178,30 +132,8 @@ const DisplayPreview: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (id) {
-      fetchDisplayData();
-    }
-  }, [id]);
-
-  // Carregar histórico quando localização mudar
-  useEffect(() => {
-    if (selectedLocation) {
-      
-      // Resetar previousTicket e lastSeenTicket ao mudar de localização
-      setPreviousTicket(null);
-      setLastSeenTicket(null);
-      
-      loadHistoryFromStorage(selectedLocation.id);
-      
-      loadTicketHistory();
-      fetchCurrentTicket();
-    }
-  }, [selectedLocation, loadTicketHistory]);
-
-  // Auto-refresh do ticket atual
-  useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    
+
     if (selectedLocation && display?.auto_refresh) {
       interval = setInterval(() => {
         fetchCurrentTicket();
@@ -213,96 +145,32 @@ const DisplayPreview: React.FC = () => {
     };
   }, [selectedLocation, display?.auto_refresh, display?.refresh_interval]);
 
-  // Limpeza de histórico antigo a cada hora
-  useEffect(() => {
-    let cleanHistoryInterval: ReturnType<typeof setInterval>;
-    
-    if (selectedLocation) {
-      cleanHistoryInterval = setInterval(() => {
-        cleanOldHistory();
-      }, 60 * 60 * 1000); // 1 hora
-    }
-
-    return () => {
-      if (cleanHistoryInterval) clearInterval(cleanHistoryInterval);
-    };
-  }, [selectedLocation, cleanOldHistory]);
-
-  const fetchDisplayData = async () => {
-    try {
-      setIsLoading(true);
-      const displayResponse = await apiService.getDisplay(parseInt(id!));
-      setDisplay(displayResponse);
-    } catch (error) {
-      console.error('Erro ao carregar dados do display:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const fetchCurrentTicket = async () => {
     if (!selectedLocation) return;
-    
+
     try {
       const response = await apiService.getCurrentTicket(selectedLocation.id);
-      
-      // A API retorna os dados em response.data.data
-      if (response.data) {
-        const newCurrentTicket = response.data;
-        
-        // Verificar se a senha mudou
-        if (!currentTicket || currentTicket.id !== newCurrentTicket.id) {
-          
-          // Se havia um ticket atual, salvá-lo como anterior ANTES de mudar
-          if (currentTicket && currentTicket.id) {
-            
-            await addToHistory(currentTicket);
-            
-            // Agora salvar como previousTicket
-            setPreviousTicket(currentTicket);
-          } else {
-            // Primeira execução ou não há ticket atual
-            // Usar o lastSeenTicket se disponível
-            if (lastSeenTicket && lastSeenTicket.id !== newCurrentTicket.id) {
-              setPreviousTicket(lastSeenTicket);
-            }
-          }
-          
-          // Atualizar lastSeenTicket com o novo ticket
-          setLastSeenTicket(newCurrentTicket);
-          
-          // Agora definir o novo ticket atual
-          setCurrentTicket(newCurrentTicket);
-        } 
-      } else {
-        
-        // Se não há ticket atual mas havia um antes
-        if (currentTicket && currentTicket.id) {
-          
-          await addToHistory(currentTicket);
 
-          setPreviousTicket(currentTicket);
-          
-          setCurrentTicket(null);
-        } else {
-          setCurrentTicket(null);
+      if (response.data) {
+        addTicketToHistory(response.data);
+        setCurrentTicket(response.data);
+      } else {
+        if (currentTicket) {
+          addTicketToHistory(currentTicket);
         }
+        setCurrentTicket(null);
       }
     } catch (error) {
-      // Se houve erro e havia um ticket, manter no histórico
-      if (currentTicket && currentTicket.id) {
-        
-        await addToHistory(currentTicket);
-        
-        // Agora salvar como previousTicket
-        setPreviousTicket(currentTicket);
-        
-        setCurrentTicket(null);
-      } else {
-        setCurrentTicket(null);
-      }
+      console.error('Erro ao buscar ticket atual:', error);
     }
   };
+
+  // Função para obter o histórico filtrado (sem o ticket atual)
+  const getFilteredHistory = useCallback(() => {
+    if (!currentTicket) return ticketHistory;
+    
+    return ticketHistory.filter(historyTicket => historyTicket.id !== currentTicket.id);
+  }, [ticketHistory, currentTicket]);
 
   if (isLoading || !selectedLocation) {
     return (
@@ -326,7 +194,7 @@ const DisplayPreview: React.FC = () => {
             {!display ? 'Display não encontrado' : 'Localização não selecionada'}
           </h2>
           <p className="text-gray-600">
-            {!display 
+            {!display
               ? 'O display solicitado não foi encontrado ou não está disponível.'
               : 'É necessário selecionar uma localização para iniciar o display.'
             }
@@ -336,17 +204,13 @@ const DisplayPreview: React.FC = () => {
     );
   }
 
-  // Dados para os templates
   const templateData = {
     display,
     currentTicket,
-    previousTicket,
-    lastSeenTicket,
-    ticketHistory,
+    ticketHistory: getFilteredHistory(), // Passa o histórico filtrado (sem o ticket atual)
     currentTime
   };
 
-  // Renderizar template baseado na configuração
   const renderTemplate = () => {
     switch (display.template) {
       case 'classic':

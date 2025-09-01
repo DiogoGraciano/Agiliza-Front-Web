@@ -10,11 +10,12 @@ import {
   Palette,
   RefreshCw,
   CheckCircle,
-  XCircle
+  XCircle,
+  Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiService from '../services/api';
-import type { Display, DisplayFilters } from '../types';
+import type { Display, DisplayFilters, Location } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -23,6 +24,7 @@ import Modal from '../components/ui/Modal';
 import { FiltersPanel } from '../components/ui/FiltersPanel';
 import DisplayForm from '../components/displays/DisplayForm';
 import DisplayView from '../components/displays/DisplayView';
+import LocationSelectionModal from '../components/selectionModals/LocationSelectionModal';
 
 const Displays: React.FC = () => {
   const [displays, setDisplays] = useState<Display[]>([]);
@@ -34,6 +36,8 @@ const Displays: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedDisplay, setSelectedDisplay] = useState<Display | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [displayToOpen, setDisplayToOpen] = useState<Display | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -100,6 +104,20 @@ const Displays: React.FC = () => {
   const openViewModal = (display: Display) => {
     setSelectedDisplay(display);
     setShowViewModal(true);
+  };
+
+  const openDisplayPanel = (display: Display) => {
+    setDisplayToOpen(display);
+    setShowLocationModal(true);
+  };
+
+  const handleLocationSelect = (location: Location) => {
+    if (displayToOpen) {
+      const panelUrl = `/display/${displayToOpen.id}/preview?location=${location.id}`;
+      window.open(panelUrl, '_blank');
+    }
+    setShowLocationModal(false);
+    setDisplayToOpen(null);
   };
 
   const openCreateModal = () => {
@@ -206,7 +224,7 @@ const Displays: React.FC = () => {
         <div className="flex items-center space-x-2">
           <RefreshCw className="h-4 w-4 text-gray-500" />
           <span className="text-sm text-gray-900">
-            {display.auto_refresh ? `${display.refresh_interval}s` : 'Manual'}
+            Manual
           </span>
         </div>
       )
@@ -228,6 +246,15 @@ const Displays: React.FC = () => {
       header: 'Ações',
       render: (display: Display) => (
         <div className="flex items-center space-x-2">
+        <Button
+            onClick={() => openDisplayPanel(display)}
+            variant="ghost"
+          size="sm"
+            className="text-purple-600 hover:text-purple-700"
+          title="Abrir Painel"
+        >
+            <Play className="h-4 w-4" />
+        </Button>
         <Button
             onClick={() => openViewModal(display)}
             variant="ghost"
@@ -422,6 +449,16 @@ const Displays: React.FC = () => {
           />
         )}
       </Modal>
+
+      {/* Modal de Seleção de Localização */}
+      <LocationSelectionModal
+        isOpen={showLocationModal}
+        onClose={() => {
+          setShowLocationModal(false);
+          setDisplayToOpen(null);
+        }}
+        onSelect={handleLocationSelect}
+      />
     </div>
   );
 };

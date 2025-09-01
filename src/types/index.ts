@@ -561,6 +561,23 @@ export interface UpdateImageAssetData {
   type?: 'logo' | 'background' | 'promotional' | 'other';
 }
 
+// Interface para Imagens do Carrossel
+export interface DisplayCarouselImage {
+  id: number;
+  path: string;
+  name: string;
+  order: number;
+  is_active: boolean;
+  url?: string; // URL processada pelo backend
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCarouselImageData {
+  file: File | string; // File ou base64
+  order?: number;
+}
+
 // Interfaces para Display (Monitores)
 export interface Display {
   id: number;
@@ -573,19 +590,19 @@ export interface Display {
   color_accent: string;
   color_highlight: string;
   image_logo?: string;
-  image_background?: string;
-  image_promotional?: string;
+  desk_name: string;
   show_logo: boolean;
-  show_background: boolean;
-  show_promotional: boolean;
-  auto_refresh: boolean;
-  refresh_interval: number;
-  show_current_ticket: boolean;
+  show_carrosel: boolean;
+  show_location_name: boolean;
+  show_desk_name: boolean;
   show_ticket_history: boolean;
-  show_counter_info: boolean;
+  show_queue_name: boolean;
+  show_date: boolean;
+  show_time: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  carousel_images?: DisplayCarouselImage[];
 }
 
 export interface CreateDisplayData {
@@ -598,17 +615,17 @@ export interface CreateDisplayData {
   color_accent: string;
   color_highlight: string;
   image_logo?: File;
-  image_background?: File;
-  image_promotional?: File;
+  desk_name: string;
   show_logo: boolean;
-  show_background: boolean;
-  show_promotional: boolean;
-  auto_refresh: boolean;
-  refresh_interval: number;
-  show_current_ticket: boolean;
+  show_carrosel: boolean;
+  show_location_name: boolean;
+  show_desk_name: boolean;
   show_ticket_history: boolean;
-  show_counter_info: boolean;
+  show_queue_name: boolean;
+  show_date: boolean;
+  show_time: boolean;
   is_active?: boolean;
+  carousel_images?: CreateCarouselImageData[];
 }
 
 export interface UpdateDisplayData extends Partial<CreateDisplayData> {}
@@ -623,6 +640,21 @@ export interface DisplayFilters {
 export const DISPLAY_IMAGE_CONFIG: FileUploadConfig = {
   maxFiles: 1,
   maxSizePerFile: 5, // 5MB
+  allowedTypes: [
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'image/gif',
+    'image/svg+xml',
+    'image/webp'
+  ],
+  allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp']
+}
+
+// Configuração para upload de imagens do carrossel
+export const DISPLAY_CAROUSEL_CONFIG: FileUploadConfig = {
+  maxFiles: 10, // Máximo 10 imagens no carrossel
+  maxSizePerFile: 5, // 5MB por imagem
   allowedTypes: [
     'image/jpeg',
     'image/jpg', 

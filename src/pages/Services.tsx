@@ -10,42 +10,19 @@ import {
   Briefcase,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
 import apiService from '../services/api';
-import type { Service, Type, ServiceFilters, Category, UploadedFile, Sector } from '../types';
-import { SERVICE_IMAGE_CONFIG } from '../types';
+import type { Service, Type, ServiceFilters, Category, Sector } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import Checkbox from '../components/ui/Checkbox';
-import Textarea from '../components/ui/Textarea';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import { FiltersPanel } from '../components/ui/FiltersPanel';
 import TypeSelectionModal from '../components/selectionModals/TypeSelectionModal';
 import CategorySelectionModal from '../components/selectionModals/CategorySelectionModal';
 import SectorSelectionModal from '../components/selectionModals/SectorSelectionModal';
-import FileUpload from '../components/ui/FileUpload';
-import FilePreview from '../components/ui/FilePreview';
-
-const serviceSchema = yup.object({
-  name: yup.string().required('Nome é obrigatório'),
-  description: yup.string().required('Descrição é obrigatória'),
-  categories: yup.array().of(yup.number()).min(1, 'Pelo menos uma categoria é obrigatória').required('Categorias são obrigatórias'),
-  sector_id: yup.number().required('Setor é obrigatório'),
-  page: yup.string().optional(),
-  show_in_dashboard: yup.boolean().optional().default(true),
-  order: yup.number().optional().default(1),
-  types: yup.array().of(yup.number()).optional().default([]),
-  needs_attachment: yup.boolean().optional().default(false),
-  needs_email: yup.boolean().optional().default(false),
-  needs_address: yup.boolean().optional().default(false),
-  needs_phone: yup.boolean().optional().default(false),
-  needs_birth_date: yup.boolean().optional().default(false),
-  needs_cpf_cnpj: yup.boolean().optional().default(false),
-});
+import ServiceForm from '../components/services/ServiceForm';
+import ServiceView from '../components/services/ServiceView';
 
 const Services: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
@@ -57,11 +34,6 @@ const Services: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState<Category | null>(null);
   const [filterSector, setFilterSector] = useState<Sector | null>(null);
 
-  // Estados para formulários
-  const [formTypes, setFormTypes] = useState<Type[]>([]);
-  const [formCategories, setFormCategories] = useState<Category[]>([]);
-  const [formSector, setFormSector] = useState<Sector | null>(null);
-
   const [showTypeSelectionModal, setShowTypeSelectionModal] = useState(false);
   const [showCategorySelectionModal, setShowCategorySelectionModal] = useState(false);
   const [showSectorSelectionModal, setShowSectorSelectionModal] = useState(false);
@@ -72,31 +44,6 @@ const Services: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [modalContext, setModalContext] = useState<'filter' | 'form'>('filter');
-  const [createImageFiles, setCreateImageFiles] = useState<UploadedFile[]>([]);
-  const [editImageFiles, setEditImageFiles] = useState<UploadedFile[]>([]);
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors },
-    setValue,
-  } = useForm({
-    resolver: yupResolver(serviceSchema),
-  });
-
-  const resetForm = () => {
-    reset();
-    setFormTypes([]);
-    setFormCategories([]);
-    setFormSector(null);
-    setCreateImageFiles([]);
-    setEditImageFiles([]);
-    // Limpar os campos do formulário
-    setValue('categories', []);
-    setValue('types', []);
-  };
 
   useEffect(() => {
     fetchServices();
@@ -131,14 +78,65 @@ const Services: React.FC = () => {
 
       setServices(response.data || response);
     } catch (error) {
-      toast.error('Erro ao carregar serviços:');
+      console.error('Erro ao buscar serviços:', error);
+      toast.error('Erro ao buscar serviços');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleDeleteService = async (service: Service) => {
+    if (!confirm('Tem certeza que deseja excluir este serviço?')) return;
+    
+    try {
+      await apiService.deleteService(service.id);
+      toast.success('Serviço excluído com sucesso!');
+      fetchServices();
+    } catch (error: any) {
+      toast.error('Erro ao excluir serviço.');
+    }
+  };
+
+  const onSubmit = async (_data: any) => {
+    try {
+      fetchServices();
+      setShowCreateModal(false);
+      setShowEditModal(false);
+    } catch (error: any) {
+      toast.error('Erro ao salvar serviço.');
+    }
+  };
+
+  const openEditModal = (service: Service) => {
+    setSelectedService(service);
+    setShowEditModal(true);
+  };
+
+  const openViewModal = (service: Service) => {
+    setSelectedService(service);
+    setShowViewModal(true);
+  };
+
+  const openCreateModal = () => {
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedService(null);
+  };
+
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setSelectedService(null);
+  };
+
   const applyFilters = () => {
-    setCurrentPage(1); // Reset para primeira página ao aplicar filtros
+    setCurrentPage(1);
     fetchServices();
   };
 
@@ -160,187 +158,9 @@ const Services: React.FC = () => {
     fetchServices();
   };
 
-  const handleCreateService = async (data: any) => {
-    try {
-      if (createImageFiles.length === 0) {
-        toast.error('Por favor, selecione uma imagem');
-        return;
-      }
-
-      // Validar se há categorias selecionadas
-      if (!data.categories || data.categories.length === 0) {
-        toast.error('Por favor, selecione pelo menos uma categoria');
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('name', data.name);
-      formData.append('description', data.description);
-      formData.append('image', createImageFiles[0].file);
-
-      // Adicionar múltiplas categorias
-      formCategories.forEach(category => {
-        formData.append('categories[]', category.id.toString());
-      });
-
-      if (formSector?.id) {
-        formData.append('sector_id', formSector.id.toString());
-      }
-      if (formTypes.length > 0) {
-        formTypes.forEach(type => {
-          formData.append('types[]', type.id.toString());
-        });
-      }
-
-      formData.append('show_in_dashboard', data.show_in_dashboard.toString());
-      formData.append('order', data.order.toString());
-      if (data.page) {
-        formData.append('page', data.page);
-      }
-
-      formData.append('needs_attachment', data.needs_attachment.toString());
-      formData.append('needs_email', data.needs_email.toString());
-      formData.append('needs_address', data.needs_address.toString());
-      formData.append('needs_phone', data.needs_phone.toString());
-      formData.append('needs_birth_date', data.needs_birth_date.toString());
-      formData.append('needs_cpf_cnpj', data.needs_cpf_cnpj.toString());
-
-      await apiService.createService(formData);
-
-      setShowCreateModal(false);
-      resetForm();
-      setCreateImageFiles([]);
-      fetchServices();
-      toast.success('Serviço criado com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao criar serviço: ' + error);
-    }
-  };
-
-  const handleUpdateService = async (data: any) => {
-    if (!selectedService) return;
-    try {
-      // Validar se há categorias selecionadas
-      if (!data.categories || data.categories.length === 0) {
-        toast.error('Por favor, selecione pelo menos uma categoria');
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('name', data.name);
-      formData.append('description', data.description);
-      if (editImageFiles.length > 0) {
-        formData.append('image', editImageFiles[0].file);
-      }
-
-      // Adicionar múltiplas categorias
-      formCategories.forEach(category => {
-        formData.append('categories[]', category.id.toString());
-      });
-
-      if (formSector?.id) {
-        formData.append('sector_id', formSector.id.toString());
-      }
-      if (formTypes.length > 0) {
-        formTypes.forEach(type => {
-          formData.append('types[]', type.id.toString());
-        });
-      }
-
-      formData.append('show_in_dashboard', data.show_in_dashboard.toString());
-      formData.append('order', data.order.toString());
-      if (data.page) {
-        formData.append('page', data.page);
-      }
-
-      formData.append('needs_attachment', data.needs_attachment.toString());
-      formData.append('needs_email', data.needs_email.toString());
-      formData.append('needs_address', data.needs_address.toString());
-      formData.append('needs_phone', data.needs_phone.toString());
-      formData.append('needs_birth_date', data.needs_birth_date.toString());
-      formData.append('needs_cpf_cnpj', data.needs_cpf_cnpj.toString());
-
-      await apiService.updateService(selectedService.id, formData);
-
-      setShowEditModal(false);
-      resetForm();
-      setSelectedService(null);
-      setEditImageFiles([]);
-      fetchServices();
-      toast.success('Serviço atualizado com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao atualizar serviço: ' + error);
-    }
-  };
-
-  const handleDeleteService = async (service: Service) => {
-    if (!confirm('Tem certeza que deseja excluir este serviço?')) return;
-    try {
-      await apiService.deleteService(service.id);
-      fetchServices();
-      toast.success('Serviço excluído com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao excluir serviço: ' + error);
-    }
-  };
-
-  const openEditModal = (service: Service) => {
-    setSelectedService(service);
-    setValue('name', service.name);
-    setValue('description', service.description);
-    setValue('sector_id', service.sector_id || 0);
-    setValue('show_in_dashboard', service.show_in_dashboard || true);
-    setValue('order', service.order || 1);
-    setValue('page', service.page || '');
-    setValue('needs_attachment', service.needs_attachment || false);
-    setValue('needs_address', service.needs_address || false);
-    setValue('needs_phone', service.needs_phone || false);
-    setValue('needs_birth_date', service.needs_birth_date || false);
-    setValue('needs_cpf_cnpj', service.needs_cpf_cnpj || false);
-    setValue('needs_email', service.needs_email || false);
-
-    // Definir os tipos, categorias e setores selecionados
-    if (service.types) {
-      setFormTypes(service.types);
-      setValue('types', service.types.map(t => t.id));
-    }
-    if (service.categories && service.categories.length > 0) {
-      setFormCategories(service.categories);
-      setValue('categories', service.categories.map(c => c.id));
-    } else if (service.category) {
-      setFormCategories([service.category]);
-      setValue('categories', [service.category.id]);
-    } else {
-      setFormCategories([]);
-      setValue('categories', []);
-    }
-    if (service.sector) {
-      setFormSector(service.sector);
-    }
-    // Resetar arquivos de imagem
-    setEditImageFiles([]);
-
-    setShowEditModal(true);
-  };
-
-  const openViewModal = (service: Service) => {
-    setSelectedService(service);
-    setShowViewModal(true);
-  };
-
   const handleTypeSelect = (type: Type) => {
     if (modalContext === 'filter') {
       setFilterType(type);
-    } else {
-      // Adicionar o tipo à lista de tipos selecionados
-      setFormTypes(prev => {
-        const exists = prev.find(t => t.id === type.id);
-        if (exists) return prev;
-        const newTypes = [...prev, type];
-        // Atualizar o campo do formulário
-        setValue('types', newTypes.map(t => t.id));
-        return newTypes;
-      });
     }
     setShowTypeSelectionModal(false);
   };
@@ -348,16 +168,6 @@ const Services: React.FC = () => {
   const handleCategorySelect = (category: Category) => {
     if (modalContext === 'filter') {
       setFilterCategory(category);
-    } else {
-      // Adicionar a categoria à lista de categorias selecionadas
-      setFormCategories(prev => {
-        const exists = prev.find(c => c.id === category.id);
-        if (exists) return prev;
-        const newCategories = [...prev, category];
-        // Atualizar o campo do formulário
-        setValue('categories', newCategories.map(c => c.id));
-        return newCategories;
-      });
     }
     setShowCategorySelectionModal(false);
   };
@@ -365,8 +175,6 @@ const Services: React.FC = () => {
   const handleSectorSelect = (sector: Sector) => {
     if (modalContext === 'filter') {
       setFilterSector(sector);
-    } else {
-      setFormSector(sector);
     }
     setShowSectorSelectionModal(false);
   };
@@ -551,7 +359,7 @@ const Services: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-end items-center">
-        <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Novo Serviço
         </Button>
@@ -603,6 +411,16 @@ const Services: React.FC = () => {
               >
                 <Layers className="h-4 w-4" />
               </Button>
+              {filterType && (
+                <Button
+                  onClick={() => setFilterType(null)}
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Limpar
+                </Button>
+              )}
             </div>
           </div>
 
@@ -629,6 +447,16 @@ const Services: React.FC = () => {
               >
                 <Tag className="h-4 w-4" />
               </Button>
+              {filterCategory && (
+                <Button
+                  onClick={() => setFilterCategory(null)}
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Limpar
+                </Button>
+              )}
             </div>
           </div>
 
@@ -655,6 +483,16 @@ const Services: React.FC = () => {
               >
                 <Briefcase className="h-4 w-4" />
               </Button>
+              {filterSector && (
+                <Button
+                  onClick={() => setFilterSector(null)}
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Limpar
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -714,633 +552,43 @@ const Services: React.FC = () => {
       {/* Modal de Criação */}
       <Modal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={closeCreateModal}
         title="Criar Novo Serviço"
-        size="xl"
+        size="2xl"
       >
-        <form onSubmit={(e) => {
-          handleSubmit(handleCreateService)(e);
-        }} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="col-span-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome *
-              </label>
-              <Input
-                {...register('name')}
-                placeholder="Nome do serviço"
-                error={errors.name?.message}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categoria *
-              </label>
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  {formCategories.map(category => (
-                    <span key={category.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      {category.name}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newCategories = formCategories.filter(c => c.id !== category.id);
-                          setFormCategories(newCategories);
-                          setValue('categories', newCategories.map(c => c.id));
-                        }}
-                        className="ml-1 text-green-600 hover:text-green-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      setModalContext('form');
-                      setShowCategorySelectionModal(true);
-                    }}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Tag className="h-4 w-4 mr-2" />
-                    Adicionar Categoria
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipos
-              </label>
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  {formTypes.map(type => (
-                    <span key={type.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {type.name}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newTypes = formTypes.filter(t => t.id !== type.id);
-                          setFormTypes(newTypes);
-                          setValue('types', newTypes.map(t => t.id));
-                        }}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setModalContext('form');
-                    setShowTypeSelectionModal(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Layers className="h-4 w-4 mr-2" />
-                  Adicionar Tipo
-                </Button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Setor *
-              </label>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Selecione setor"
-                  value={formSector?.name || ''}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setModalContext('form');
-                    setShowSectorSelectionModal(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Briefcase className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descrição *
-            </label>
-            <Textarea
-              {...register('description')}
-              placeholder="Descrição do serviço"
-              rows={4}
-              error={errors.description?.message}
-            />
-          </div>
-          <div>
-            <FileUpload
-              onFilesChange={setCreateImageFiles}
-              config={SERVICE_IMAGE_CONFIG}
-              placeholder="Arraste uma imagem aqui ou clique para selecionar"
-              showUploadSection={true}
-              disabled={false}
-              title="Imagem *"
-              subtitle="Carregue uma imagem para o serviço"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Exibir no Dashboard
-              </label>
-              <Checkbox
-                checked={watch('show_in_dashboard')}
-                onChange={(e) => setValue('show_in_dashboard', e.target.checked)}
-                label="Sim"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ordem de Exibição no Dashboard
-              </label>
-              <Input
-                {...register('order')}
-                type="number"
-                placeholder="1"
-                min="1"
-              />
-            </div>
-
-            <div className="hidden">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Configurações da Página (JSON)
-              </label>
-              <Textarea
-                {...register('page')}
-                placeholder='{"title": "Título da Página", "content": "Conteúdo da página"}'
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Requisitos do Serviço
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <Checkbox
-                checked={watch('needs_attachment')}
-                onChange={(e) => setValue('needs_attachment', e.target.checked)}
-                label="Anexo obrigatório"
-              />
-
-              <Checkbox
-                checked={watch('needs_address')}
-                onChange={(e) => setValue('needs_address', e.target.checked)}
-                label="Endereço obrigatório"
-              />
-
-              <Checkbox
-                checked={watch('needs_phone')}
-                onChange={(e) => setValue('needs_phone', e.target.checked)}
-                label="Telefone obrigatório"
-              />
-
-              <Checkbox
-                checked={watch('needs_birth_date')}
-                onChange={(e) => setValue('needs_birth_date', e.target.checked)}
-                label="Data de nascimento obrigatória"
-              />
-
-              <Checkbox
-                checked={watch('needs_cpf_cnpj')}
-                onChange={(e) => setValue('needs_cpf_cnpj', e.target.checked)}
-                label="CPF/CNPJ obrigatório"
-              />
-
-              <Checkbox
-                checked={watch('needs_email')}
-                onChange={(e) => setValue('needs_email', e.target.checked)}
-                label="Email obrigatório"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button
-              type="button"
-              onClick={() => setShowCreateModal(false)}
-              variant="outline"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit">
-              Criar Serviço
-            </Button>
-          </div>
-        </form>
+        <ServiceForm
+          onCancel={closeCreateModal}
+          onSubmit={onSubmit}
+        />
       </Modal>
 
       {/* Modal de Edição */}
       <Modal
         isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
+        onClose={closeEditModal}
         title="Editar Serviço"
-        size="xl"
+        size="2xl"
       >
-        <form onSubmit={(e) => {
-          handleSubmit(handleUpdateService)(e);
-        }} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="col-span-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome *
-              </label>
-              <Input
-                {...register('name')}
-                placeholder="Nome do serviço"
-                error={errors.name?.message}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipos
-              </label>
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  {formTypes.map(type => (
-                    <span key={type.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {type.name}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newTypes = formTypes.filter(t => t.id !== type.id);
-                          setFormTypes(newTypes);
-                          setValue('types', newTypes.map(t => t.id));
-                        }}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setModalContext('form');
-                    setShowTypeSelectionModal(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Layers className="h-4 w-4 mr-2" />
-                  Adicionar Tipo
-                </Button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categoria
-              </label>
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  {formCategories.map(category => (
-                    <span key={category.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      {category.name}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newCategories = formCategories.filter(c => c.id !== category.id);
-                          setFormCategories(newCategories);
-                          setValue('categories', newCategories.map(c => c.id));
-                        }}
-                        className="ml-1 text-green-600 hover:text-green-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      setModalContext('form');
-                      setShowCategorySelectionModal(true);
-                    }}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Tag className="h-4 w-4 mr-2" />
-                    Adicionar Categoria
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Setor
-              </label>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Selecione setor"
-                  value={formSector?.name || ''}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setModalContext('form');
-                    setShowSectorSelectionModal(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Briefcase className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descrição *
-            </label>
-            <Textarea
-              {...register('description')}
-              placeholder="Descrição do serviço"
-              rows={4}
-              error={errors.description?.message}
-            />
-          </div>
-
-          <div>
-            <FileUpload
-              onFilesChange={setEditImageFiles}
-              config={SERVICE_IMAGE_CONFIG}
-              placeholder="Arraste uma nova imagem aqui ou clique para selecionar"
-              showUploadSection={true}
-              disabled={false}
-              title="Imagem *"
-              subtitle="Carregue uma nova imagem para o serviço"
-            />
-            {selectedService?.image && (
-              <div className="mt-3">
-                <p className="text-sm text-gray-600 mb-2">Imagem atual:</p>
-                <img
-                  src={selectedService.image}
-                  alt={selectedService.name}
-                  className="w-24 h-24 object-cover rounded-lg border border-gray-200"
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Exibir no Dashboard
-              </label>
-              <Checkbox
-                checked={watch('show_in_dashboard')}
-                onChange={(e) => setValue('show_in_dashboard', e.target.checked)}
-                label="Sim"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ordem de Exibição
-              </label>
-              <Input
-                {...register('order')}
-                type="number"
-                placeholder="1"
-                min="1"
-              />
-            </div>
-
-            <div className="hidden">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Configurações da Página (JSON)
-              </label>
-              <Textarea
-                {...register('page')}
-                placeholder='{"title": "Título da Página", "content": "Conteúdo da página"}'
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Requisitos do Serviço
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <Checkbox
-                checked={watch('needs_attachment')}
-                onChange={(e) => setValue('needs_attachment', e.target.checked)}
-                label="Anexo obrigatório"
-              />
-
-              <Checkbox
-                checked={watch('needs_address')}
-                onChange={(e) => setValue('needs_address', e.target.checked)}
-                label="Endereço obrigatório"
-              />
-
-              <Checkbox
-                checked={watch('needs_phone')}
-                onChange={(e) => setValue('needs_phone', e.target.checked)}
-                label="Telefone obrigatório"
-              />
-
-              <Checkbox
-                checked={watch('needs_birth_date')}
-                onChange={(e) => setValue('needs_birth_date', e.target.checked)}
-                label="Data de nascimento obrigatória"
-              />
-
-              <Checkbox
-                checked={watch('needs_cpf_cnpj')}
-                onChange={(e) => setValue('needs_cpf_cnpj', e.target.checked)}
-                label="CPF/CNPJ obrigatório"
-              />
-
-              <Checkbox
-                checked={watch('needs_email')}
-                onChange={(e) => setValue('needs_email', e.target.checked)}
-                label="Email obrigatório"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button
-              type="button"
-              onClick={() => setShowEditModal(false)}
-              variant="outline"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit">
-              Atualizar Serviço
-            </Button>
-          </div>
-        </form>
+        <ServiceForm
+          service={selectedService}
+          isEditing={true}
+          onCancel={closeEditModal}
+          onSubmit={onSubmit}
+        />
       </Modal>
 
       {/* Modal de Visualização */}
       <Modal
         isOpen={showViewModal}
-        onClose={() => setShowViewModal(false)}
+        onClose={closeViewModal}
         title="Visualizar Serviço"
-        size="xl"
+        size="3xl"
       >
         {selectedService && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Informações do Serviço</h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">ID</label>
-                    <p className="text-sm text-gray-900">{selectedService.id}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Nome</label>
-                    <p className="text-sm text-gray-900">{selectedService.name}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Descrição</label>
-                    <p className="text-sm text-gray-900">{selectedService.description}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipos</label>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedService.types && selectedService.types.length > 0 ? (
-                        selectedService.types.map(type => (
-                          <span key={type.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {type.name}
-                          </span>
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500">N/A</p>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Categorias</label>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedService.categories && selectedService.categories.length > 0 ? (
-                        selectedService.categories.map(category => (
-                          <span key={category.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            {category.name}
-                          </span>
-                        ))
-                      ) : selectedService.category ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          {selectedService.category.name}
-                        </span>
-                      ) : (
-                        <p className="text-sm text-gray-500">N/A</p>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Setor</label>
-                    <p className="text-sm text-gray-900">{selectedService.sector?.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Exibir no Dashboard</label>
-                    <p className="text-sm text-gray-900">
-                      {selectedService.show_in_dashboard ? 'Sim' : 'Não'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Ordem de Exibição</label>
-                    <p className="text-sm text-gray-900">{selectedService.order}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Data de Criação</label>
-                    <p className="text-sm text-gray-900">
-                      {new Date(selectedService.created_at).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Requisitos</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <span className={`w-3 h-3 rounded-full ${selectedService.needs_attachment ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                    <span className="text-sm text-gray-700">Anexo obrigatório</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`w-3 h-3 rounded-full ${selectedService.needs_address ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                    <span className="text-sm text-gray-700">Endereço obrigatório</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`w-3 h-3 rounded-full ${selectedService.needs_phone ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                    <span className="text-sm text-gray-700">Telefone obrigatório</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`w-3 h-3 rounded-full ${selectedService.needs_birth_date ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                    <span className="text-sm text-gray-700">Data de nascimento obrigatória</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`w-3 h-3 rounded-full ${selectedService.needs_cpf_cnpj ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                    <span className="text-sm text-gray-700">CPF/CNPJ obrigatório</span>
-                  </div>
-                </div>
-
-                {selectedService.image && (
-                  <div className="mt-6">
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Imagem</h4>
-                    <FilePreview
-                      attachments={[{
-                        id: 0,
-                        name: selectedService.name,
-                        path: selectedService.image,
-                        url: selectedService.image,
-                        created_at: selectedService.created_at
-                      }]}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button
-                onClick={() => {
-                  setShowViewModal(false);
-                  openEditModal(selectedService);
-                }}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Editar
-              </Button>
-              <Button onClick={() => setShowViewModal(false)} variant="outline">
-                Fechar
-              </Button>
-            </div>
-          </div>
+          <ServiceView
+            service={selectedService}
+            onClose={closeViewModal}
+          />
         )}
       </Modal>
 
@@ -1361,7 +609,6 @@ const Services: React.FC = () => {
         onClose={() => setShowSectorSelectionModal(false)}
         onSelect={handleSectorSelect}
       />
-
     </div>
   );
 };

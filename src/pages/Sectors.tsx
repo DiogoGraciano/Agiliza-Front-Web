@@ -5,12 +5,9 @@ import {
   Edit, 
   Trash2,
   Briefcase,
-  Mail,
-  Search
+  Mail
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
+import toast from 'react-hot-toast';
 import apiService from '../services/api';
 import type { Sector } from '../types';
 import Card from '../components/ui/Card';
@@ -19,12 +16,8 @@ import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import { FiltersPanel } from '../components/ui/FiltersPanel';
-import toast from 'react-hot-toast';
-
-const sectorSchema = yup.object({
-  name: yup.string().required('Nome é obrigatório').max(255, 'Nome deve ter no máximo 255 caracteres'),
-  email: yup.string().email('Email inválido').required('Email é obrigatório'),
-});
+import SectorForm from '../components/sectors/SectorForm';
+import SectorView from '../components/sectors/SectorView';
 
 const Sectors: React.FC = () => {
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -34,16 +27,6 @@ const Sectors: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-    setValue,
-  } = useForm({
-    resolver: yupResolver(sectorSchema),
-  });
 
   useEffect(() => {
     fetchSectors();
@@ -55,10 +38,61 @@ const Sectors: React.FC = () => {
       const response = await apiService.getSectors();
       setSectors(response);
     } catch (error) {
-      toast.error('Erro ao carregar setores: ' + error);
+      console.error('Erro ao buscar setores:', error);
+      toast.error('Erro ao buscar setores');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeleteSector = async (sector: Sector) => {
+    if (!confirm('Tem certeza que deseja excluir este setor?')) return;
+    
+    try {
+      await apiService.deleteSector(sector.id);
+      toast.success('Setor excluído com sucesso!');
+      fetchSectors();
+    } catch (error: any) {
+      toast.error('Erro ao excluir setor.');
+    }
+  };
+
+  const onSubmit = async (_data: any) => {
+    try {
+      fetchSectors();
+      setShowCreateModal(false);
+      setShowEditModal(false);
+    } catch (error: any) {
+      toast.error('Erro ao salvar setor.');
+    }
+  };
+
+  const openEditModal = (sector: Sector) => {
+    setSelectedSector(sector);
+    setShowEditModal(true);
+  };
+
+  const openViewModal = (sector: Sector) => {
+    setSelectedSector(sector);
+    setShowViewModal(true);
+  };
+
+  const openCreateModal = () => {
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedSector(null);
+  };
+
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setSelectedSector(null);
   };
 
   const applyFilters = () => {
@@ -74,57 +108,6 @@ const Sectors: React.FC = () => {
   const clearFilters = () => {
     setSearchFilter('');
     fetchSectors();
-  };
-
-  const handleCreateSector = async (data: Omit<Sector, 'id' | 'created_at' | 'updated_at'>) => {
-    try {
-      await apiService.createSector(data);
-      setShowCreateModal(false);
-      reset();
-      fetchSectors();
-      toast.success('Setor criado com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao criar setor: ' + error);
-    }
-  };
-
-  const handleUpdateSector = async (data: Partial<Omit<Sector, 'id' | 'created_at' | 'updated_at'>>) => {
-    if (!selectedSector) return;
-
-    try {
-      await apiService.updateSector(selectedSector.id, data);
-      setShowEditModal(false);
-      reset();
-      setSelectedSector(null);
-      fetchSectors();
-      toast.success('Setor atualizado com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao atualizar setor: ' + error);
-    }
-  };
-
-  const handleDeleteSector = async (sector: Sector) => {
-    if (!confirm('Tem certeza que deseja excluir este setor?')) return;
-    
-    try {
-      await apiService.deleteSector(sector.id);
-      fetchSectors();
-      toast.success('Setor excluído com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao excluir setor: ' + error);
-    }
-  };
-
-  const openEditModal = (sector: Sector) => {
-    setSelectedSector(sector);
-    setValue('name', sector.name);
-    setValue('email', sector.email);
-    setShowEditModal(true);
-  };
-
-  const openViewModal = (sector: Sector) => {
-    setSelectedSector(sector);
-    setShowViewModal(true);
   };
 
   const filteredSectors = sectors.filter(sector => {
@@ -218,7 +201,7 @@ const Sectors: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-end items-center">
-        <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Novo Setor
         </Button>
@@ -278,154 +261,43 @@ const Sectors: React.FC = () => {
       {/* Modal de Criação */}
       <Modal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={closeCreateModal}
         title="Criar Novo Setor"
-        size="lg"
+        size="2xl"
       >
-        <form onSubmit={handleSubmit(handleCreateSector)} className="space-y-6">
-          <div className="grid grid-cols-1 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome *
-              </label>
-              <Input
-                {...register('name')}
-                placeholder="Nome do setor"
-                error={errors.name?.message}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email *
-              </label>
-              <Input
-                {...register('email')}
-                type="email"
-                placeholder="setor@empresa.com"
-                error={errors.email?.message}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button
-              type="button"
-              onClick={() => setShowCreateModal(false)}
-              variant="outline"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              Criar Setor
-            </Button>
-          </div>
-        </form>
+        <SectorForm
+          onCancel={closeCreateModal}
+          onSubmit={onSubmit}
+        />
       </Modal>
 
       {/* Modal de Edição */}
       <Modal
         isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
+        onClose={closeEditModal}
         title="Editar Setor"
-        size="lg"
+        size="2xl"
       >
-        <form onSubmit={handleSubmit(handleUpdateSector)} className="space-y-6">
-          <div className="grid grid-cols-1 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome *
-              </label>
-              <Input
-                {...register('name')}
-                placeholder="Nome do setor"
-                error={errors.name?.message}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email *
-              </label>
-              <Input
-                {...register('email')}
-                type="email"
-                placeholder="setor@empresa.com"
-                error={errors.email?.message}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button
-              type="button"
-              onClick={() => setShowEditModal(false)}
-              variant="outline"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              Atualizar Setor
-            </Button>
-          </div>
-        </form>
+        <SectorForm
+          sector={selectedSector}
+          isEditing={true}
+          onCancel={closeEditModal}
+          onSubmit={onSubmit}
+        />
       </Modal>
 
       {/* Modal de Visualização */}
       <Modal
         isOpen={showViewModal}
-        onClose={() => setShowViewModal(false)}
+        onClose={closeViewModal}
         title="Visualizar Setor"
-        size="lg"
+        size="3xl"
       >
         {selectedSector && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
-              <div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">ID</label>
-                    <p className="text-sm text-gray-900">{selectedSector.id}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Nome</label>
-                    <p className="text-sm text-gray-900">{selectedSector.name}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
-                    <p className="text-sm text-gray-900">{selectedSector.email}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Data de Cadastro</label>
-                    <p className="text-sm text-gray-900">
-                      {new Date(selectedSector.created_at).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Última Atualização</label>
-                    <p className="text-sm text-gray-900">
-                      {new Date(selectedSector.updated_at).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button
-                onClick={() => {
-                  setShowViewModal(false);
-                  openEditModal(selectedSector);
-                }}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Editar
-              </Button>
-              <Button onClick={() => setShowViewModal(false)} variant="outline">
-                Fechar
-              </Button>
-            </div>
-          </div>
+          <SectorView
+            sector={selectedSector}
+            onClose={closeViewModal}
+          />
         )}
       </Modal>
     </div>

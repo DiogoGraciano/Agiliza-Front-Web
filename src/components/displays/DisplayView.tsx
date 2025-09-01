@@ -8,7 +8,13 @@ import {
   RefreshCw,
   CheckCircle, 
   XCircle,
-  Play
+  Play,
+  MapPin,
+  Clock,
+  CalendarDays,
+  Building,
+  Users,
+  FileText
 } from 'lucide-react';
 import type { Display, Location } from '../../types';
 import Button from '../ui/Button';
@@ -25,6 +31,7 @@ const DisplayView: React.FC<DisplayViewProps> = ({
 }) => {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
@@ -161,6 +168,119 @@ const DisplayView: React.FC<DisplayViewProps> = ({
         </div>
       </div>
 
+      {/* Card de Configurações de Exibição */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div className="bg-orange-50 px-4 py-3 border-b border-orange-200 rounded-t-lg">
+          <div className="flex items-center space-x-2">
+            <Settings className="w-5 h-5 text-orange-600" />
+            <h4 className="text-lg font-semibold text-gray-900">Configurações de Exibição</h4>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Elementos Visuais */}
+            <div className="space-y-3">
+              <h5 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Elementos Visuais
+              </h5>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Exibir Logo</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    display.show_logo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {display.show_logo ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Exibir Carrossel</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    display.show_carrosel ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {display.show_carrosel ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Exibir Histórico</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    display.show_ticket_history ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {display.show_ticket_history ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Informações de Localização */}
+            <div className="space-y-3">
+              <h5 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                <MapPin className="w-4 h-4 mr-2" />
+                Informações de Localização
+              </h5>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Exibir Nome da Localização</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    display.show_location_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {display.show_location_name ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Exibir Nome do Balcão</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    display.show_desk_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {display.show_desk_name ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Exibir Nome da Fila</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    display.show_queue_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {display.show_queue_name ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Informações de Data e Hora */}
+            <div className="space-y-3">
+              <h5 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                <Clock className="w-4 h-4 mr-2" />
+                Data e Hora
+              </h5>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Exibir Data</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    display.show_date ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {display.show_date ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Exibir Hora</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    display.show_time ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {display.show_time ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Nome do Balcão</span>
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {display.desk_name}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Card de Cores */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="bg-blue-50 px-4 py-3 border-b border-blue-200 rounded-t-lg">
@@ -271,119 +391,48 @@ const DisplayView: React.FC<DisplayViewProps> = ({
                 </div>
               )}
             </div>
-            
-            <div className="text-center">
-              <h5 className="text-sm font-medium text-gray-900 mb-2">Imagem de Fundo</h5>
-              {display.image_background ? (
-                <div className="space-y-2">
-                  <img 
-                    src={display.image_background} 
-                    alt="Fundo" 
-                    className="w-24 h-24 mx-auto object-contain border rounded-lg"
-                  />
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    display.show_background ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {display.show_background ? 'Exibindo' : 'Oculto'}
-                  </span>
-                </div>
-              ) : (
-                <div className="w-24 h-24 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
-                  <ImageIcon className="w-8 h-8 text-gray-400" />
-                </div>
-              )}
-            </div>
-            
-            <div className="text-center">
-              <h5 className="text-sm font-medium text-gray-900 mb-2">Imagem Promocional</h5>
-              {display.image_promotional ? (
-                <div className="space-y-2">
-                  <img 
-                    src={display.image_promotional} 
-                    alt="Promocional" 
-                    className="w-24 h-24 mx-auto object-contain border rounded-lg"
-                  />
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    display.show_promotional ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {display.show_promotional ? 'Exibindo' : 'Oculto'}
-                  </span>
-                </div>
-              ) : (
-                <div className="w-24 h-24 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
-                  <ImageIcon className="w-8 h-8 text-gray-400" />
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Card de Configurações */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <div className="bg-orange-50 px-4 py-3 border-b border-orange-200 rounded-t-lg">
-          <div className="flex items-center space-x-2">
-            <Settings className="w-5 h-5 text-orange-600" />
-            <h4 className="text-lg font-semibold text-gray-900">Configurações de Exibição</h4>
-          </div>
-        </div>
-        <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <h5 className="text-sm font-medium text-gray-900 mb-3">Elementos Visuais</h5>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">Exibir Ticket Atual</span>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    display.show_current_ticket ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {display.show_current_ticket ? 'Sim' : 'Não'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">Exibir Histórico</span>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    display.show_ticket_history ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {display.show_ticket_history ? 'Sim' : 'Não'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">Exibir Info do Contador</span>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    display.show_counter_info ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {display.show_counter_info ? 'Sim' : 'Não'}
-                  </span>
-                </div>
-              </div>
+      {/* Card de Imagens do Carrossel */}
+      {display.carousel_images && display.carousel_images.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="bg-indigo-50 px-4 py-3 border-b border-indigo-200 rounded-t-lg">
+            <div className="flex items-center space-x-2">
+              <ImageIcon className="w-5 h-5 text-indigo-600" />
+              <h4 className="text-lg font-semibold text-gray-900">Imagens do Carrossel</h4>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                {display.carousel_images.length} imagens
+              </span>
             </div>
-            
-            <div className="space-y-3">
-              <h5 className="text-sm font-medium text-gray-900 mb-3">Atualização</h5>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">Atualização Automática</span>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    display.auto_refresh ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {display.auto_refresh ? 'Sim' : 'Não'}
-                  </span>
-                </div>
-                {display.auto_refresh && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">Intervalo</span>
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                      {display.refresh_interval}s
-                    </span>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {display.carousel_images.map((carouselImage, index) => (
+                <div key={carouselImage.id} className="text-center">
+                  <div className="space-y-2">
+                    <img 
+                      src={carouselImage.path} 
+                      alt={carouselImage.name} 
+                      className="w-24 h-24 mx-auto object-cover border rounded-lg shadow-sm"
+                    />
+                    <div className="text-xs text-gray-600">
+                      <div className="font-medium truncate">{carouselImage.name}</div>
+                      <div>Ordem: {carouselImage.order}</div>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        carouselImage.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {carouselImage.is_active ? 'Ativa' : 'Inativa'}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Informações de Timestamps */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">

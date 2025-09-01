@@ -6,29 +6,21 @@ import {
   Trash2,
   Tag,
   Calendar,
-  Settings,
   Layers
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
 import apiService from '../services/api';
 import type { Category, CategoryFilters, Type } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
-import Checkbox from '../components/ui/Checkbox';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import { FiltersPanel } from '../components/ui/FiltersPanel';
 import TypeSelectionModal from '../components/selectionModals/TypeSelectionModal';
-
-const categorySchema = yup.object({
-  name: yup.string().required('Nome é obrigatório'),
-  is_active: yup.boolean().optional().default(true),
-});
+import CategoryForm from '../components/categories/CategoryForm';
+import CategoryView from '../components/categories/CategoryView';
 
 const Categories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -43,19 +35,8 @@ const Categories: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [showTypeSelectionModal, setShowTypeSelectionModal] = useState(false);
   const [filterType, setFilterType] = useState<Type | null>(null);
-  const [formType, setFormType] = useState<Type | null>(null);
   const [typeSelectionContext, setTypeSelectionContext] = useState<'filter' | 'form'>('filter');
   const [shouldApplyFilters, setShouldApplyFilters] = useState(true);
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-    setValue,
-    watch,
-  } = useForm({
-    resolver: yupResolver(categorySchema),
-  });
 
   useEffect(() => {
     if (shouldApplyFilters) {
@@ -69,7 +50,6 @@ const Categories: React.FC = () => {
     try {
       setIsLoading(true);
 
-      // Construir filtros conforme a documentação da API
       const filters: CategoryFilters = {};
 
       if (statusFilter !== 'all') {
@@ -89,7 +69,8 @@ const Categories: React.FC = () => {
       setCategories(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
-      toast.error('Erro ao carregar categorias:');
+      console.error('Erro ao buscar categorias:', error);
+      toast.error('Erro ao buscar categorias');
     } finally {
       setIsLoading(false);
     }
@@ -102,14 +83,65 @@ const Categories: React.FC = () => {
       setCategories(response.data);
       setTotalPages(response.last_page);
     } catch (error) {
-      toast.error('Erro ao carregar categorias:');
+      console.error('Erro ao buscar categorias:', error);
+      toast.error('Erro ao buscar categorias');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleDeleteCategory = async (category: Category) => {
+    if (!confirm('Tem certeza que deseja excluir esta categoria?')) return;
+    
+    try {
+      await apiService.deleteCategory(category.id);
+      toast.success('Categoria excluída com sucesso!');
+      fetchCategories();
+    } catch (error: any) {
+      toast.error('Erro ao excluir categoria.');
+    }
+  };
+
+  const onSubmit = async (_data: any) => {
+    try {
+      fetchCategories();
+      setShowCreateModal(false);
+      setShowEditModal(false);
+    } catch (error: any) {
+      toast.error('Erro ao salvar categoria.');
+    }
+  };
+
+  const openEditModal = (category: Category) => {
+    setSelectedCategory(category);
+    setShowEditModal(true);
+  };
+
+  const openViewModal = (category: Category) => {
+    setSelectedCategory(category);
+    setShowViewModal(true);
+  };
+
+  const openCreateModal = () => {
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedCategory(null);
+  };
+
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setSelectedCategory(null);
+  };
+
   const applyFilters = () => {
-    setCurrentPage(1); // Reset para primeira página ao aplicar filtros
+    setCurrentPage(1);
     setShouldApplyFilters(true);
     fetchCategories();
   };
@@ -131,85 +163,11 @@ const Categories: React.FC = () => {
     fetchCategoriesWithoutFilters();
   };
 
-  const handleCreateCategory = async (data: any) => {
-    try {
-      if (!formType) {
-        toast.error('Selecione um tipo');
-        return;
-      }
-
-      const categoryData = {
-        ...data,
-        type_id: formType.id,
-      };
-      
-      await apiService.createCategory(categoryData);
-      setShowCreateModal(false);
-      reset();
-      setFormType(null);
-      fetchCategories();
-      toast.success('Categoria criada com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao criar categoria: ' + error);
-    }
-  };
-
-  const handleUpdateCategory = async (data: any) => {
-    if (!selectedCategory) return;
-    try {
-      if (!formType) {
-        toast.error('Selecione um tipo');
-        return;
-      }
-
-      const categoryData = {
-        ...data,
-        type_id: formType.id,
-      };
-
-      await apiService.updateCategory(selectedCategory.id, categoryData);
-      setShowEditModal(false);
-      reset();
-      setSelectedCategory(null);
-      setFormType(null);
-      fetchCategories();
-      toast.success('Categoria atualizada com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao atualizar categoria: ' + error);
-    }
-  };
-
-  const handleDeleteCategory = async (category: Category) => {
-    if (!confirm('Tem certeza que deseja excluir esta categoria?')) return;
-    try {
-      await apiService.deleteCategory(category.id);
-      fetchCategories();
-      toast.success('Categoria excluída com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao excluir categoria: ' + error);
-    }
-  };
-
   const handleTypeSelect = (type: Type) => {
     if (typeSelectionContext === 'filter') {
       setFilterType(type);
-    } else {
-      setFormType(type);
     }
     setShowTypeSelectionModal(false);
-  };
-
-  const openEditModal = (category: Category) => {
-    setSelectedCategory(category);
-    setValue('name', category.name);
-    setValue('is_active', category.is_active);
-    setFormType(category.type || null);
-    setShowEditModal(true);
-  };
-
-  const openViewModal = (category: Category) => {
-    setSelectedCategory(category);
-    setShowViewModal(true);
   };
 
   const handlePageChange = (page: number) => {
@@ -310,10 +268,7 @@ const Categories: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-end items-center">
-        <Button onClick={() => {
-          setFormType(null);
-          setShowCreateModal(true);
-        }} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Nova Categoria
         </Button>
@@ -400,7 +355,7 @@ const Categories: React.FC = () => {
         </div>
       </FiltersPanel>
 
-            {/* Tabela de Categorias */}
+      {/* Tabela de Categorias */}
       <div className="space-y-4">
         <Table
           title="Lista de Categorias"
@@ -454,253 +409,43 @@ const Categories: React.FC = () => {
       {/* Modal de Criação */}
       <Modal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={closeCreateModal}
         title="Criar Nova Categoria"
-        size="xl"
+        size="2xl"
       >
-        <form onSubmit={handleSubmit(handleCreateCategory)} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome *
-            </label>
-            <Input
-              {...register('name')}
-              placeholder="Nome da categoria"
-              error={errors.name?.message}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo *
-            </label>
-            <div className="flex space-x-2">
-              <Input
-                type="text"
-                placeholder="Selecione um tipo"
-                value={formType?.name || ''}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                onClick={() => {
-                  setTypeSelectionContext('form');
-                  setShowTypeSelectionModal(true);
-                }}
-                variant="outline"
-                size="sm"
-                type="button"
-              >
-                <Layers className="h-4 w-4" />
-              </Button>
-              {formType && (
-                <Button
-                  onClick={() => setFormType(null)}
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  className="text-red-600 hover:text-red-700"
-                >
-                  Limpar
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="flex items-center space-x-2">
-              <Checkbox
-                {...register('is_active')}
-                checked={watch('is_active')}
-                onChange={(e) => setValue('is_active', e.target.checked)}
-              />
-              <span className="text-sm text-gray-700">Categoria ativa</span>
-            </label>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button
-              type="button"
-              onClick={() => {
-                setShowCreateModal(false);
-                setFormType(null);
-              }}
-              variant="outline"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit">
-              Criar Categoria
-            </Button>
-          </div>
-        </form>
+        <CategoryForm
+          onCancel={closeCreateModal}
+          onSubmit={onSubmit}
+        />
       </Modal>
 
       {/* Modal de Edição */}
       <Modal
         isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
+        onClose={closeEditModal}
         title="Editar Categoria"
-        size="xl"
+        size="2xl"
       >
-        <form onSubmit={handleSubmit(handleUpdateCategory)} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome *
-            </label>
-            <Input
-              {...register('name')}
-              placeholder="Nome da categoria"
-              error={errors.name?.message}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo *
-            </label>
-            <div className="flex space-x-2">
-              <Input
-                type="text"
-                placeholder="Selecione um tipo"
-                value={formType?.name || ''}
-                readOnly
-                className="flex-1"
-                error={!formType ? 'Tipo é obrigatório' : undefined}
-              />
-              <Button
-                onClick={() => {
-                  setTypeSelectionContext('form');
-                  setShowTypeSelectionModal(true);
-                }}
-                variant="outline"
-                size="sm"
-                type="button"
-              >
-                <Layers className="h-4 w-4" />
-              </Button>
-              {formType && (
-                <Button
-                  onClick={() => setFormType(null)}
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  className="text-red-600 hover:text-red-700"
-                >
-                  Limpar
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="flex items-center space-x-2">
-              <Checkbox
-                {...register('is_active')}
-                checked={watch('is_active')}
-                onChange={(e) => setValue('is_active', e.target.checked)}
-              />
-              <span className="text-sm text-gray-700">Categoria ativa</span>
-            </label>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button
-              type="button"
-              onClick={() => {
-                setShowEditModal(false);
-                setFormType(null);
-              }}
-              variant="outline"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit">
-              Atualizar Categoria
-            </Button>
-          </div>
-        </form>
+        <CategoryForm
+          category={selectedCategory}
+          isEditing={true}
+          onCancel={closeEditModal}
+          onSubmit={onSubmit}
+        />
       </Modal>
 
       {/* Modal de Visualização */}
       <Modal
         isOpen={showViewModal}
-        onClose={() => setShowViewModal(false)}
+        onClose={closeViewModal}
         title="Visualizar Categoria"
-        size="xl"
+        size="3xl"
       >
         {selectedCategory && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Informações da Categoria</h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">ID</label>
-                    <p className="text-sm text-gray-900">{selectedCategory.id}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Nome</label>
-                    <p className="text-sm text-gray-900">{selectedCategory.name}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipo</label>
-                    <p className="text-sm text-gray-900">{selectedCategory.type?.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Status</label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      selectedCategory.is_active 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {selectedCategory.is_active ? 'Ativa' : 'Inativa'}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Data de Criação</label>
-                    <p className="text-sm text-gray-900">
-                      {new Date(selectedCategory.created_at).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Serviços Associados</h4>
-                {selectedCategory.services && selectedCategory.services.length > 0 ? (
-                  <div className="space-y-2">
-                    {selectedCategory.services.map((service) => (
-                      <div key={service.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                        <Settings className="h-5 w-5 text-blue-500" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{service.name}</p>
-                          <p className="text-xs text-gray-500">{service.description}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">Nenhum serviço associado</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button
-                onClick={() => {
-                  setShowViewModal(false);
-                  openEditModal(selectedCategory);
-                }}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Editar
-              </Button>
-              <Button onClick={() => setShowViewModal(false)} variant="outline">
-                Fechar
-              </Button>
-            </div>
-          </div>
+          <CategoryView
+            category={selectedCategory}
+            onClose={closeViewModal}
+          />
         )}
       </Modal>
 
@@ -709,7 +454,6 @@ const Categories: React.FC = () => {
         onClose={() => setShowTypeSelectionModal(false)}
         onSelect={handleTypeSelect}
       />
-
     </div>
   );
 };

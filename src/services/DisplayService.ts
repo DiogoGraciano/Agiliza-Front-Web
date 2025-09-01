@@ -19,14 +19,26 @@ export class DisplayService extends BaseService {
 
   async createDisplay(data: CreateDisplayData): Promise<{ message: string; data: Display }> {
     const formData = new FormData();
-    
-    // Adiciona campos de texto
+
+    // Adiciona campos de texto e arquivos
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        if (value instanceof File) {
+        if (key === 'carousel_images' && Array.isArray(value)) {
+          // Trata especificamente o array de imagens do carrossel
+          value.forEach((carouselImage, index) => {
+            if (carouselImage.file instanceof File) {
+              // Nova imagem
+              formData.append(`carousel_images[${index}][file]`, carouselImage.file);
+              formData.append(`carousel_images[${index}][order]`, carouselImage.order?.toString() || (index + 1).toString());
+            }
+          });
+        } else if (value instanceof File) {
           formData.append(key, value);
         } else if (typeof value === 'boolean') {
           formData.append(key, value ? '1' : '0');
+        } else if (typeof value === 'object') {
+          // Para outros objetos, converte para JSON
+          formData.append(key, JSON.stringify(value));
         } else {
           formData.append(key, value.toString());
         }
@@ -42,14 +54,28 @@ export class DisplayService extends BaseService {
 
   async updateDisplay(id: number, data: UpdateDisplayData): Promise<{ message: string; data: Display }> {
     const formData = new FormData();
-    
-    // Adiciona campos de texto
+
+    // Adiciona campos de texto e arquivos
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        if (value instanceof File) {
+        if (key === 'carousel_images' && Array.isArray(value)) {
+          // Trata especificamente o array de imagens do carrossel
+          value.forEach((carouselImage, index) => {
+            if (carouselImage.file instanceof File) {
+              // Nova imagem
+              formData.append(`carousel_images[${index}][file]`, carouselImage.file);
+              formData.append(`carousel_images[${index}][order]`, carouselImage.order?.toString() || (index + 1).toString());
+            } else if (carouselImage.id) {
+              formData.append(`carousel_images[${index}][id]`, carouselImage.id);
+              formData.append(`carousel_images[${index}][order]`, carouselImage.order?.toString() || (index + 1).toString());
+            }
+          });
+        } else if (value instanceof File) {
           formData.append(key, value);
         } else if (typeof value === 'boolean') {
           formData.append(key, value ? '1' : '0');
+        } else if (typeof value === 'object') {
+          formData.append(key, JSON.stringify(value));
         } else {
           formData.append(key, value.toString());
         }
@@ -67,6 +93,12 @@ export class DisplayService extends BaseService {
 
   async deleteDisplay(id: number): Promise<{ message: string }> {
     return this.delete<{ message: string }>(`/displays/${id}`);
+  }
+
+  async reorderCarouselImages(displayId: number, imageOrders: { id: number; order: number }[]): Promise<{ message: string; data: Display }> {
+    return this.post<{ message: string; data: Display }>(`/displays/${displayId}/reorder-carousel`, {
+      image_orders: imageOrders
+    });
   }
 }
 
