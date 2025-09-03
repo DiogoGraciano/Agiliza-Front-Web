@@ -223,6 +223,8 @@ export interface Manifest {
   admin_id: number; // Obrigatório - admin responsável
   service_id: number;
   status: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed' | 'cancelled';
+  origin?: 'phone' | 'in_person' | 'mobile_office' | 'internal_document';
+  avaliation?: number;
   cpf_cnpj?: string;
   name?: string;
   phone?: string;
@@ -634,6 +636,30 @@ export interface DisplayFilters {
   is_active?: boolean;
   template?: string;
   name?: string;
+}
+
+// Interfaces para Device (Dispositivos)
+export interface Device {
+  id: number;
+  name: string;
+  token: string;
+  location_id: number;
+  created_at: string;
+  updated_at: string;
+  location?: Location;
+}
+
+export interface CreateDeviceData {
+  name: string;
+  token: string;
+  location_id: number;
+}
+
+export interface UpdateDeviceData extends Partial<CreateDeviceData> {}
+
+export interface DeviceFilters {
+  name?: string;
+  location_id?: number;
 }
 
 // Configuração para upload de imagens de displays

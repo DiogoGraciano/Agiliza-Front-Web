@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Textarea from '../ui/Textarea';
-import CustomSelect from '../ui/CustomSelect';
+import Select from '../ui/Select';
 import MapLocationPicker from '../ui/MapLocationPicker';
 import FileUpload from '../ui/FileUpload';
 import SectionHeader from '../ui/SectionHeader';
@@ -25,6 +25,7 @@ const createManifestSchema = (selectedService: Service | null) => {
     user_id: yup.number().optional(),
     admin_id: yup.number().required('Administrador responsável é obrigatório'),
     service_id: yup.number().required('Serviço é obrigatório'),
+    origin: yup.string().oneOf(['phone', 'in_person', 'mobile_office', 'internal_document']).optional(),
     description: yup.string().required('Descrição é obrigatória'),
   };
 
@@ -105,7 +106,6 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
     cidades,
     selectedEstado,
     selectedCidade,
-    loadingCidades,
     handleEstadoSelect,
     handleCidadeSelect,
     findEstadoBySigla,
@@ -145,6 +145,7 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
       user_id: manifest.user_id,
       admin_id: manifest.admin_id,
       service_id: manifest.service_id,
+      origin: manifest.origin || '',
       description: manifest.description,
       cpf_cnpj: manifest.cpf_cnpj || '',
       name: manifest.name || '',
@@ -290,6 +291,9 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
   useEffect(() => {
     if (manifest && isEditing) {
       // Carregar todos os campos do manifesto na edição
+      if (manifest.origin) {
+        setValue('origin', manifest.origin);
+      }
       if (manifest.cpf_cnpj) {
         setValue('cpf_cnpj', manifest.cpf_cnpj);
       }
@@ -671,7 +675,7 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300">
             {renderSectionHeader(UserIcon, "Informações Básicas", "Selecione o admin responsável, usuário (opcional) e serviço", "basic")}
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
 
             <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-700">
@@ -810,6 +814,31 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
                     {errors.user_id.message?.toString()}
                   </p>
                 )}
+              </div>
+
+              {/* Origem */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Origem do Atendimento
+                </label>
+                <Select
+                  value={watch('origin') || ''}
+                  options={[
+                    { value: 'phone', label: 'Telefone' },
+                    { value: 'in_person', label: 'Presencial' },
+                    { value: 'mobile_office', label: 'Escritório Móvel' },
+                    { value: 'internal_document', label: 'Documento Interno' }
+                  ]}
+                  onChange={(value) => {
+                    setValue('origin', value as 'phone' | 'in_person' | 'mobile_office' | 'internal_document');
+                  }}
+                  placeholder="Selecione a origem"
+                  error={errors.origin?.message?.toString()}
+                />
+                <input
+                  type="hidden"
+                  {...register('origin')}
+                />
               </div>
             </div>
           </div>
@@ -990,16 +1019,15 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <CustomSelect
+                        <Select
                           label="Estado *"
                           value={selectedEstado?.nome || ''}
                           options={estados.map(estado => ({
-                            id: estado.id,
-                            nome: estado.nome,
-                            sigla: estado.sigla
+                            value: estado.id,
+                            label: estado.nome
                           }))}
-                          onSelect={(option) => {
-                            const estado = estados.find(e => e.id === option.id);
+                          onChange={(value) => {
+                            const estado = estados.find(e => e.id === value);
                             if (estado) {
                               handleEstadoSelect(estado);
                               setValue('state', estado.sigla);
@@ -1007,27 +1035,28 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
                           }}
                           placeholder="Selecione o estado"
                           error={errors.state?.message?.toString()}
+                          searchable
                         />
                       </div>
                       <div className="space-y-2">
-                        <CustomSelect
+                        <Select
                           label="Cidade *"
                           value={selectedCidade?.nome || ''}
                           options={cidades.map(cidade => ({
-                            id: cidade.id,
-                            nome: cidade.nome
+                            value: cidade.id,
+                            label: cidade.nome
                           }))}
-                          onSelect={(option) => {
-                            const cidade = cidades.find(c => c.id === option.id);
+                          onChange={(value) => {
+                            const cidade = cidades.find(c => c.id === value);
                             if (cidade) {
                               handleCidadeSelect(cidade);
                               setValue('city', cidade.nome);
                             }
                           }}
                           placeholder="Selecione a cidade"
-                          loading={loadingCidades}
                           disabled={!selectedEstado}
                           error={errors.city?.message?.toString()}
+                          searchable
                         />
                       </div>
                     </div>

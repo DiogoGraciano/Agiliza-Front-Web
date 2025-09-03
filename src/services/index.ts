@@ -14,6 +14,7 @@ export { deskService } from './DeskService';
 export { ticketService } from './TicketService';
 export { displayService } from './DisplayService';
 export { enterpriseService } from './EnterpriseService';
+export { deviceService } from './DeviceService';
 
 // Exportações padrão para compatibilidade
 export { default as authServiceDefault } from './AuthService';
@@ -31,3 +32,4 @@ export { default as deskServiceDefault } from './DeskService';
 export { default as ticketServiceDefault } from './TicketService';
 export { default as displayServiceDefault } from './DisplayService';
 export { default as enterpriseServiceDefault } from './EnterpriseService';
+export { default as deviceServiceDefault } from './DeviceService';

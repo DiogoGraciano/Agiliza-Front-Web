@@ -20,6 +20,7 @@ import Tickets from './pages/Tickets';
 import Displays from './pages/Displays';
 import DisplayPreview from './pages/DisplayPreview';
 import './App.css';
+import Devices from './pages/Devices';
 
 // Componente para rotas protegidas
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -163,6 +164,14 @@ const AppContent: React.FC = () => {
             </ProtectedRoute>
           } 
         />
+        <Route 
+          path="/devices" 
+          element={
+            <ProtectedRoute>
+              <Devices />
+            </ProtectedRoute>
+          } 
+        />  
         <Route 
           path="/display/:id/preview" 
           element={<DisplayPreview />} 

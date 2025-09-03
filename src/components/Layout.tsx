@@ -21,7 +21,8 @@ import {
   MapPin,
   Monitor,
   Ticket,
-  Layout as LayoutIcon
+  Layout as LayoutIcon,
+  Smartphone
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Button from './ui/Button';
@@ -85,6 +86,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       submenu: [
         { name: 'Administradores', href: '/admins', icon: Shield, badge: null, description: 'Gerencie todos os administradores do sistema' },
         { name: 'Setores', href: '/sectors', icon: Briefcase, badge: null, description: 'Gerencie todos os setores do sistema' },
+        { name: 'Dispositivos', href: '/devices', icon: Smartphone, badge: null, description: 'Gerencie todos os dispositivos do sistema' },
         { name: 'Configurações', href: '/enterprise', icon: Building2, badge: null, description: 'Gerencie a empresa do sistema' },
       ]
     }

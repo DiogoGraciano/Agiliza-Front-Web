@@ -16,7 +16,8 @@ import {
   deskService,
   ticketService,
   displayService,
-  enterpriseService
+  enterpriseService,
+  deviceService
 } from './index';
 
 // Classe de compatibilidade que mantém a interface original
@@ -148,6 +149,14 @@ class ApiService {
   createDisplay = (data: any) => displayService.createDisplay(data);
   updateDisplay = (id: number, data: any) => displayService.updateDisplay(id, data);
   deleteDisplay = (id: number) => displayService.deleteDisplay(id);
+
+  // Device (Dispositivos)
+  getDevices = (filters?: any, page?: number) => deviceService.getDevices(filters, page);
+  getAllDevices = () => deviceService.getAllDevices();
+  getDevice = (id: number) => deviceService.getDevice(id);
+  createDevice = (data: any) => deviceService.createDevice(data);
+  updateDevice = (id: number, data: any) => deviceService.updateDevice(id, data);
+  deleteDevice = (id: number) => deviceService.deleteDevice(id);
 }
 
 export const apiService = new ApiService();
