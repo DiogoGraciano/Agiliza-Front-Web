@@ -38,11 +38,35 @@ const statusOptions = [
   { value: 'cancelled', label: 'Cancelados' },
 ];
 
+const originOptions = [
+  { value: 'all', label: 'Todas as Origens' },
+  { value: 'app', label: 'App' },
+  { value: 'mobile_office', label: 'Escritório Móvel' },
+  { value: 'internal_document', label: 'Documento Interno' },
+  { value: 'phone', label: 'Telefone' },
+  { value: 'in_person', label: 'Presencial' },
+  { value: 'site', label: 'Website' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+];
+
+const typeOptions = [
+  { value: 'all', label: 'Todos os Tipos' },
+  { value: 'information_access', label: 'Acesso à Informação' },
+  { value: 'report', label: 'Denúncia' },
+  { value: 'praise', label: 'Elogio' },
+  { value: 'complaint', label: 'Reclamação' },
+  { value: 'request', label: 'Solicitação' },
+  { value: 'simplify', label: 'Simplificação' },
+  { value: 'suggestion', label: 'Sugestão' },
+];
+
 const Manifests: React.FC = () => {
   const [manifests, setManifests] = useState<Manifest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [originFilter, setOriginFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [zipCodeFilter, setZipCodeFilter] = useState<string>('');
   const [addressFilter, setAddressFilter] = useState<string>('');
   const [cityFilter, setCityFilter] = useState<string>('');
@@ -79,6 +103,14 @@ const Manifests: React.FC = () => {
 
       if (statusFilter !== 'all') {
         filters.status = statusFilter;
+      }
+
+      if (originFilter !== 'all') {
+        filters.origin = originFilter;
+      }
+
+      if (typeFilter !== 'all') {
+        filters.type = typeFilter;
       }
 
       if (searchTerm.trim()) {
@@ -150,6 +182,8 @@ const Manifests: React.FC = () => {
     let count = 0;
     if (searchTerm.trim()) count++;
     if (statusFilter !== 'all') count++;
+    if (originFilter !== 'all') count++;
+    if (typeFilter !== 'all') count++;
     if (selectedUser) count++;
     if (selectedAdmin) count++;
     if (filterService) count++;
@@ -167,6 +201,8 @@ const Manifests: React.FC = () => {
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
+    setOriginFilter('all');
+    setTypeFilter('all');
     setSelectedUser(null);
     setSelectedAdmin(null);
     setFilterService(null);
@@ -553,6 +589,30 @@ const Manifests: React.FC = () => {
                 value={statusFilter}
                 onChange={(value) => setStatusFilter(value as string)}
                 options={statusOptions}
+              />
+            </div>
+
+            {/* Filtro por origem */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Origem
+              </label>
+              <Select
+                value={originFilter}
+                onChange={(value) => setOriginFilter(value as string)}
+                options={originOptions}
+              />
+            </div>
+
+            {/* Filtro por tipo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo
+              </label>
+              <Select
+                value={typeFilter}
+                onChange={(value) => setTypeFilter(value as string)}
+                options={typeOptions}
               />
             </div>
 

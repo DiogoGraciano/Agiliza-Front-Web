@@ -26,6 +26,7 @@ const createManifestSchema = (selectedService: Service | null) => {
     admin_id: yup.number().required('Administrador responsável é obrigatório'),
     service_id: yup.number().required('Serviço é obrigatório'),
     origin: yup.string().oneOf(['phone', 'in_person', 'mobile_office', 'internal_document']).optional(),
+    type: yup.string().oneOf(['information_access', 'report', 'complaint', 'request', 'simplify', 'praise', 'suggestion']).optional(),
     description: yup.string().required('Descrição é obrigatória'),
   };
 
@@ -146,6 +147,7 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
       admin_id: manifest.admin_id,
       service_id: manifest.service_id,
       origin: manifest.origin || '',
+      type: manifest.type || '',
       description: manifest.description,
       cpf_cnpj: manifest.cpf_cnpj || '',
       name: manifest.name || '',
@@ -293,6 +295,9 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
       // Carregar todos os campos do manifesto na edição
       if (manifest.origin) {
         setValue('origin', manifest.origin);
+      }
+      if (manifest.type) {
+        setValue('type', manifest.type);
       }
       if (manifest.cpf_cnpj) {
         setValue('cpf_cnpj', manifest.cpf_cnpj);
@@ -675,7 +680,7 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300">
             {renderSectionHeader(UserIcon, "Informações Básicas", "Selecione o admin responsável, usuário (opcional) e serviço", "basic")}
 
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
             <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-700">
@@ -819,7 +824,7 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
               {/* Origem */}
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-700">
-                  Origem do Atendimento
+                  Origem do Atendimento *
                 </label>
                 <Select
                   value={watch('origin') || ''}
@@ -838,6 +843,34 @@ const ManifestForm: React.FC<ManifestFormProps> = ({
                 <input
                   type="hidden"
                   {...register('origin')}
+                />
+              </div>
+
+              {/* Tipo */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Tipo de Manifesto *
+                </label>
+                <Select
+                  value={watch('type') || ''}
+                  options={[
+                    { value: 'information_access', label: 'Acesso à Informação' },
+                    { value: 'report', label: 'Denúncia' },
+                    { value: 'praise', label: 'Elogio' },
+                    { value: 'complaint', label: 'Reclamação' },
+                    { value: 'request', label: 'Solicitação' },
+                    { value: 'simplify', label: 'Simplificação' },
+                    { value: 'suggestion', label: 'Sugestão' }
+                  ]}
+                  onChange={(value) => {
+                    setValue('type', value as 'information_access' | 'report' | 'complaint' | 'request' | 'simplify' | 'praise' | 'suggestion');
+                  }}
+                  placeholder="Selecione o tipo"
+                  error={errors.type?.message?.toString()}
+                />
+                <input
+                  type="hidden"
+                  {...register('type')}
                 />
               </div>
             </div>

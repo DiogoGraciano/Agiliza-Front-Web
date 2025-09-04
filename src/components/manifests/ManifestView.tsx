@@ -171,21 +171,41 @@ const ManifestView = forwardRef<ManifestViewRef, ManifestViewProps>(({
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Descrição</h3>
             <p className="text-gray-700 leading-relaxed mb-4">{manifest.description}</p>
             
-            {/* Informação da Origem */}
-            {manifest.origin && (
-              <div className="pt-4 mb-4 border-t border-gray-200">
-                <div className="flex items-center space-x-2">
-                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">Origem:</span>
-                  <span className="text-sm text-blue-600 font-semibold">
-                    {manifest.origin === 'phone' && 'Telefone'}
-                    {manifest.origin === 'in_person' && 'Presencial'}
-                    {manifest.origin === 'mobile_office' && 'Escritório Móvel'}
-                    {manifest.origin === 'internal_document' && 'Documento Interno'}
-                  </span>
-                </div>
+            {/* Informações da Origem e Tipo */}
+            {(manifest.origin || manifest.type) && (
+              <div className="pt-4 mb-4 border-t border-gray-200 space-y-3">
+                {manifest.origin && (
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <span className="text-sm font-medium text-gray-700">Origem:</span>
+                    <span className="text-sm text-blue-600 font-semibold">
+                      {manifest.origin === 'phone' && 'Telefone'}
+                      {manifest.origin === 'in_person' && 'Presencial'}
+                      {manifest.origin === 'mobile_office' && 'Escritório Móvel'}
+                      {manifest.origin === 'internal_document' && 'Documento Interno'}
+                    </span>
+                  </div>
+                )}
+                
+                {manifest.type && (
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    <span className="text-sm font-medium text-gray-700">Tipo:</span>
+                    <span className="text-sm text-green-600 font-semibold">
+                      {manifest.type === 'information_access' && 'Acesso à Informação'}
+                      {manifest.type === 'report' && 'Denúncia'}
+                      {manifest.type === 'complaint' && 'Reclamação'}
+                      {manifest.type === 'request' && 'Solicitação'}
+                      {manifest.type === 'simplify' && 'Simplificação'}
+                      {manifest.type === 'praise' && 'Elogio'}
+                      {manifest.type === 'suggestion' && 'Sugestão'}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             

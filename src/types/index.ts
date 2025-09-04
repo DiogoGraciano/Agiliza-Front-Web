@@ -224,6 +224,7 @@ export interface Manifest {
   service_id: number;
   status: 'pending' | 'accepted' | 'rejected' | 'in_progress' | 'completed' | 'cancelled';
   origin?: 'phone' | 'in_person' | 'mobile_office' | 'internal_document';
+  type?: 'information_access' | 'report' | 'complaint' | 'request' | 'simplify' | 'praise' | 'suggestion';
   avaliation?: number;
   cpf_cnpj?: string;
   name?: string;
@@ -374,6 +375,8 @@ export interface ManifestFilters {
   user_id?: number;
   admin_id?: number;
   service_id?: number;
+  origin?: string;
+  type?: string;
   description?: string;
   zip_code?: string;
   address?: string;
